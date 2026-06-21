@@ -306,6 +306,9 @@ function buildSummaryPayload(mode) {
   if (planState && !planState.oneShot) {
     const dayTxt = `第 ${Math.min(planState.dayIndex, planState.totalDays)}/${planState.totalDays} 天 · 连续 ${planState.currentStreak} 天`;
     rows.push(['计划进度', dayTxt, false]);
+    if (typeof planState.quality === 'number') {
+      rows.push(['计划完成度', `${planState.quality}%`, planState.quality >= 100]);
+    }
   }
 
   let reward = '';
@@ -424,10 +427,10 @@ function setToggleButton() {
   updateToggleSubline();
 }
 
-// 由 launchState 推导（broken→失败；无/已完成/oneShot过期→无目标；其余→有目标）
+// 由 launchState 推导（无/已完成/oneShot过期→无目标；其余→有目标）。
+// 注：温柔模型下漏天不再"硬失败"，计划继续 + 完成度下降 + 启动温柔提示，故无 'failed' 态。
 function computeLaunchState() {
   if (!planState) { launchState = 'no-goal'; return; }
-  if (planState.broken) { launchState = 'failed'; return; }
   if (planState.planDone) { launchState = 'no-goal'; return; }
   if (planState.oneShot && !planState.confirmedToday) { launchState = 'no-goal'; return; }
   launchState = 'has-goal';
@@ -642,6 +645,16 @@ function bindEvents() {
   // 连续 2 小时休息提醒
   document.getElementById('rest-go').addEventListener('click', (e) => { e.stopPropagation(); hideRestTip(); if (running) pause(); });
   document.getElementById('rest-skip').addEventListener('click', (e) => { e.stopPropagation(); hideRestTip(); });
+
+  // 漏天温柔提示：延后一天 / 就这样继续（两者都记今天已提示，避免重复弹）
+  document.getElementById('sf-postpone').addEventListener('click', async (e) => {
+    e.stopPropagation(); hideShortfallPrompt();
+    try { const p = await window.api.postponePlan(); if (p) { planState = p; renderPlanLine(); } } catch (err) { /* 忽略 */ }
+  });
+  document.getElementById('sf-keep').addEventListener('click', async (e) => {
+    e.stopPropagation(); hideShortfallPrompt();
+    try { const p = await window.api.ackShortfall(); if (p) { planState = p; } } catch (err) { /* 忽略 */ }
+  });
 
   // 设置窗修改目标后，主进程通知这里即时更新徽章/进度
   window.api.onGoalUpdated((h) => {
@@ -911,6 +924,22 @@ function showRestTip() {
 }
 function hideRestTip() { document.getElementById('rest-tip-overlay').classList.add('hidden'); }
 
+// ---------- 漏天温柔提示（多天计划昨天没达标，启动后弹一次） ----------
+function showShortfallPrompt(quality) {
+  const q = document.getElementById('sf-quality');
+  if (q) q.textContent = `${Math.round(quality)}%`;
+  document.getElementById('shortfall-overlay').classList.remove('hidden');
+  luRender();
+  try { window.api.flashAttention(); } catch (e) { /* 忽略 */ }
+}
+function hideShortfallPrompt() { document.getElementById('shortfall-overlay').classList.add('hidden'); }
+// 启动时若有缺额且今天还没提示过 → 弹一次温柔提示
+function maybeShowShortfall() {
+  if (planState && planState.hasShortfall && !planState.promptedToday) {
+    showShortfallPrompt(planState.quality);
+  }
+}
+
 // ---------- 主循环 ----------
 function tick() {
   if (running) {
@@ -952,6 +981,8 @@ async function init() {
 
   // 等布局/字体就绪后，按内容自适应窗口高度
   requestAnimationFrame(() => requestAnimationFrame(fitWindow));
+
+  maybeShowShortfall(); // 多天计划昨天有缺额 → 启动后温柔提示一次（不再静默接续）
 
   setInterval(tick, 250);              // 刷新显示
   setInterval(() => { if (running) { commitElapsed(); save(); } }, 10000); // 10s 自动保存

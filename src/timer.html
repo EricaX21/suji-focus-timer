@@ -86,6 +86,18 @@
     </div>
   </div>
 
+  <!-- 漏天温柔提示（多天计划昨天没达标时，启动后弹一次；不再静默接续） -->
+  <div id="shortfall-overlay" class="hidden">
+    <div class="dx-box">
+      <div class="dx-title"><i data-lucide="sparkles"></i> 昨天没达标，没关系</div>
+      <div class="dx-desc">计划完成度 <b id="sf-quality">80%</b>。状态起伏、临时有事都很正常 🤍 要不要把计划<b>延后一天</b>、补回一次机会？</div>
+      <div class="dx-actions">
+        <button id="sf-postpone" class="pri">计划延后一天</button>
+        <button id="sf-keep" class="sec">就这样继续</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 退出：智能退出弹窗（按今日目标做完没分流） -->
   <div id="exit-overlay" class="hidden">
     <div class="dx-box">

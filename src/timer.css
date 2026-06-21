@@ -464,14 +464,14 @@ body.fullscreen #exit-fullscreen {
 body.fullscreen #exit-fullscreen svg { width: 22px; height: 22px; }
 
 /* ===== 弹窗（分神 / 休息 / 退出 / 放弃确认 共用容器） ===== */
-#distract-overlay, #abort-confirm, #exit-overlay, #rest-tip-overlay {
+#distract-overlay, #abort-confirm, #exit-overlay, #rest-tip-overlay, #shortfall-overlay {
   -webkit-app-region: no-drag;
   position: fixed; inset: 0;
   background: rgba(20,12,8,.72);
   display: flex; align-items: center; justify-content: center;
   z-index: 70; padding: 16px;
 }
-#distract-overlay.hidden, #abort-confirm.hidden, #exit-overlay.hidden, #rest-tip-overlay.hidden { display: none; }
+#distract-overlay.hidden, #abort-confirm.hidden, #exit-overlay.hidden, #rest-tip-overlay.hidden, #shortfall-overlay.hidden { display: none; }
 #exit-done.hidden, #exit-undone.hidden { display: none; }
 .dx-box, .ac-box {
   background: linear-gradient(160deg, #43302a, var(--bistre));

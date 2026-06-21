@@ -111,11 +111,35 @@ function planWithDerived(plan) {
   while (done.has(cur)) { streak++; cur = addDays(cur, -1); }
   const completedCount = (plan.completedDates || []).length;
   const planDone = !plan.oneShot && completedCount >= totalDays;
-  // 断签：多天计划、已过首日、昨天未达标且今天还没达标
   const yesterday = addDays(today, -1);
-  const broken = !plan.oneShot && (plan.startDate || today) < today && !done.has(yesterday) && !done.has(today) && dayIndex > 1;
   const confirmedToday = plan.lastConfirmedDate === today;
-  return { ...plan, totalDays, dayIndex, currentStreak: streak, completedCount, planDone, broken, todayDone: done.has(today), confirmedToday };
+
+  // 计划完成度（按用户定义：实际专注小时 ÷ 目标小时，每天封顶在当天目标）。
+  // 只统计"已过的完整天数"（startDate..昨天，且不超过计划末日）；今天进行中不计入。第 1 天暂无缺额 → 100%。
+  let quality = 100;
+  if (!plan.oneShot) {
+    const goalMs = (plan.goalHours || 12) * 3600000;
+    const planEnd = addDays(plan.startDate || today, totalDays - 1);
+    let denomDays = 0, sumMs = 0;
+    let d = plan.startDate || today;
+    while (d < today && d <= planEnd) {
+      denomDays++;
+      let act = 0;
+      try { act = loadDay(d).totalFocusedMs || 0; } catch (e) { act = 0; }
+      sumMs += Math.min(act, goalMs); // 每天封顶在当天目标：超额不替别天补账
+      d = addDays(d, 1);
+    }
+    if (denomDays > 0 && goalMs > 0) quality = Math.round(sumMs / (goalMs * denomDays) * 100);
+  }
+  // 是否存在"已过天数里的缺额"（用于第二天温柔提示，不再静默接续）
+  const hasShortfall = !plan.oneShot && dayIndex > 1 && quality < 100;
+  const promptedToday = plan.lastPromptDate === today; // 今天是否已提示过（避免重复弹）
+
+  return {
+    ...plan, totalDays, dayIndex, currentStreak: streak, completedCount, planDone,
+    quality, hasShortfall, promptedToday,
+    todayDone: done.has(today), confirmedToday
+  };
 }
 
 // 进行中的计划在新的一天自动接续：把计划目标写进当天数据 + 标记今天已确认（避免再弹设定窗）
@@ -346,11 +370,13 @@ app.whenReady().then(() => {
   createTimerWindow();
   setupHotkey();
 
-  // 启动判定：进行中的长期目标 → 不弹窗、自动接续今天；否则（无目标/首次/已完成/断签失败/oneShot 过期）→ 弹设定窗
+  // 启动判定：进行中的多天计划 → 继续接续今天（即便昨天有缺额也不再硬失败，
+  //   缺额由悬浮窗温柔提示并可补救）；仅当计划周期整个走完仍未完成 / 无目标 / oneShot 过期 → 弹设定窗
   const plan = loadPlan();
   const derived = planWithDerived(plan);
-  const active = derived && (
-    (!derived.oneShot && !derived.planDone && !derived.broken) ||
+  const expired = derived && !derived.oneShot && !derived.planDone && derived.dayIndex > derived.totalDays;
+  const active = derived && !expired && (
+    (!derived.oneShot && !derived.planDone) ||
     (derived.oneShot && derived.confirmedToday)
   );
   if (active) {
@@ -554,6 +580,27 @@ ipcMain.handle('mark-day-complete', () => {
   }
   const derived = planWithDerived(plan);
   return Object.assign({}, derived, { firstTime, justFinishedPlan: firstTime && derived.planDone });
+});
+
+// 漏天补救：计划延后一天（多给一次机会，把缺的那天补到末尾）。记今天已提示，避免重复弹。
+ipcMain.handle('postpone-plan', () => {
+  const plan = loadPlan();
+  if (!plan) return null;
+  plan.durationDays = Math.min(60, (plan.durationDays || 1) + 1); // 补救可超原 5 天上限
+  plan.lastPromptDate = todayStr();
+  savePlan(plan);
+  const derived = planWithDerived(plan);
+  if (timerWin && !timerWin.isDestroyed()) timerWin.webContents.send('plan-updated', derived);
+  return derived;
+});
+
+// 漏天提示「就这样继续」：仅记今天已提示，不改计划。
+ipcMain.handle('ack-shortfall', () => {
+  const plan = loadPlan();
+  if (!plan) return null;
+  plan.lastPromptDate = todayStr();
+  savePlan(plan);
+  return planWithDerived(plan);
 });
 
 // ---------- 分神检测（系统空闲时间，无需全局键鼠钩子） ----------

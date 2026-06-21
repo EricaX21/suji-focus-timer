@@ -146,8 +146,19 @@ async function confirmPlan() {
 
 async function init() {
   const plan = await window.api.loadPlan();
-  // 进行中的多天计划（未完成、非仅此一次）→ 继续模式，预填上次设定
-  continuing = !!(plan && !plan.oneShot && !plan.planDone);
+  // 计划周期整个走完仍未完成 → 视作上一段结束，开启全新计划（不继续旧 startDate）
+  const expired = !!(plan && !plan.oneShot && !plan.planDone && plan.dayIndex > plan.totalDays);
+  // 进行中的多天计划（未完成、非仅此一次、未过期）→ 继续模式，预填上次设定
+  continuing = !!(plan && !plan.oneShot && !plan.planDone && !expired);
+
+  if (expired) {
+    selGoal = plan.goalHours || 12; // 沿用上次目标做默认，便于快速再开
+    const banner = document.getElementById('plan-banner');
+    banner.className = 'continue';
+    banner.style.display = 'block';
+    const qTxt = (typeof plan.quality === 'number') ? `（完成度 <b>${plan.quality}%</b>）` : '';
+    banner.innerHTML = `上一个 <b>${plan.totalDays}</b> 天计划周期结束啦${qTxt}，开启新的一段吧 ✨`;
+  }
 
   if (continuing) {
     selGoal = plan.goalHours || 12;
@@ -156,15 +167,10 @@ async function init() {
     rewardCustom = !!plan.rewardCustom;
 
     const banner = document.getElementById('plan-banner');
-    if (plan.broken) {
-      banner.className = 'broken';
-      banner.style.display = 'block';
-      banner.innerHTML = `昨天断签了 😣 没关系，从今天重新攒「连续天数」吧 —— 目标 <b>${plan.totalDays}</b> 天`;
-    } else {
-      banner.className = 'continue';
-      banner.style.display = 'block';
-      banner.innerHTML = `进行中的计划：第 <b>${Math.min(plan.dayIndex, plan.totalDays)}/${plan.totalDays}</b> 天 · 已连续 <b>${plan.currentStreak}</b> 天，继续保持！`;
-    }
+    banner.className = 'continue';
+    banner.style.display = 'block';
+    const qTxt = (typeof plan.quality === 'number' && plan.quality < 100) ? ` · 完成度 <b>${plan.quality}%</b>` : '';
+    banner.innerHTML = `进行中的计划：第 <b>${Math.min(plan.dayIndex, plan.totalDays)}/${plan.totalDays}</b> 天 · 已连续 <b>${plan.currentStreak}</b> 天${qTxt}，继续保持！`;
     document.getElementById('confirm').textContent = '继续今天的专注';
 
     // 预选目标 chip / 自定义

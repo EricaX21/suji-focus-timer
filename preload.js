@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('api', {
   markDayComplete: () => ipcRenderer.invoke('mark-day-complete'),
   openOnboard: () => ipcRenderer.send('open-onboard'),
   onStartFocus: (cb) => ipcRenderer.on('start-focus', cb),
+  // 漏天补救
+  postponePlan: () => ipcRenderer.invoke('postpone-plan'),
+  ackShortfall: () => ipcRenderer.invoke('ack-shortfall'),
 
   // ---------- 分神检测 ----------
   getIdleTime: () => ipcRenderer.invoke('get-idle-time'),
