@@ -5,15 +5,20 @@ const fs = require('fs');
 // Windows 通知需要一个 AppUserModelId 才能正常弹 toast
 app.setAppUserModelId('com.studytimer.app');
 
-// 数据目录：固定放在 %APPDATA%\study-timer\data
-// （刻意与应用显示名解耦，这样以后改名"溯迹"也不会丢失已有数据）
+// 数据根目录：默认 %APPDATA%\study-timer（与应用显示名解耦，改名不丢数据）。
+// 开发/测试时可设环境变量 STUDYTIMER_DATA_DIR 指向另一个目录，与正在运行的正式版数据隔离、互不干扰。
+function appRoot() {
+  return process.env.STUDYTIMER_DATA_DIR || path.join(app.getPath('appData'), 'study-timer');
+}
+
+// 数据目录：放在 <数据根>\data
 function getDataDir() {
-  return path.join(app.getPath('appData'), 'study-timer', 'data');
+  return path.join(appRoot(), 'data');
 }
 
 // 应用设置（与每日数据分开存）：目前存自定义全局快捷键
 function getSettingsFile() {
-  return path.join(app.getPath('appData'), 'study-timer', 'settings.json');
+  return path.join(appRoot(), 'settings.json');
 }
 function loadSettings() {
   try { return JSON.parse(fs.readFileSync(getSettingsFile(), 'utf-8')) || {}; }
@@ -21,7 +26,7 @@ function loadSettings() {
 }
 function saveSettings(s) {
   try {
-    const dir = path.join(app.getPath('appData'), 'study-timer');
+    const dir = appRoot();
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(getSettingsFile(), JSON.stringify(s, null, 2), 'utf-8');
   } catch (e) { /* 忽略写失败 */ }
@@ -29,7 +34,7 @@ function saveSettings(s) {
 
 // 计划文件（app 级、跨天）：承载多天计划 + 连续打卡。与每日数据/设置都分开存。
 function getPlanFile() {
-  return path.join(app.getPath('appData'), 'study-timer', 'plan.json');
+  return path.join(appRoot(), 'plan.json');
 }
 function loadPlan() {
   try { return JSON.parse(fs.readFileSync(getPlanFile(), 'utf-8')) || null; }
@@ -37,7 +42,7 @@ function loadPlan() {
 }
 function savePlan(p) {
   try {
-    const dir = path.join(app.getPath('appData'), 'study-timer');
+    const dir = appRoot();
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(getPlanFile(), JSON.stringify(p, null, 2), 'utf-8');
   } catch (e) { /* 忽略写失败 */ }

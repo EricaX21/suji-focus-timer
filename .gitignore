@@ -6,6 +6,8 @@ dist/
 
 # 本地测试数据（真实数据在 %APPDATA%\study-timer，不在仓库）
 data/
+# 隔离测试用数据目录（STUDYTIMER_DATA_DIR 指向这里，与正式版数据分开）
+.devdata/
 
 # 编辑器 / 工具本地配置
 .obsidian/
