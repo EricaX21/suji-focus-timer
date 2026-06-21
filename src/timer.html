@@ -61,14 +61,14 @@
   <!-- 全屏达成庆祝 -->
   <div id="goal-celebrate" class="hidden"><i data-lucide="trophy"></i><span>今日目标达成！去领奖励</span></div>
 
-  <!-- 分神提醒弹窗（鼠键长时间无操作时弹出） -->
+  <!-- 分神提醒弹窗（已自动暂停，让用户事后裁决刚才那段算专注还是分神） -->
   <div id="distract-overlay" class="hidden">
     <div class="dx-box">
-      <div class="dx-title"><i data-lucide="bell-ring"></i> 你还在专注吗？</div>
-      <div class="dx-desc">已经 <b id="distract-min">5</b> 分钟没有键盘鼠标操作了，是不是分神了？</div>
+      <div class="dx-title"><i data-lucide="bell-ring"></i> 已自动帮你暂停 ⏸</div>
+      <div class="dx-desc">刚才超过 <b id="distract-min">5</b> 分钟没动键鼠，已先停止计时。这段你是在专注（看书 / 纸质资料 / 手机）还是分神了？</div>
       <div class="dx-actions">
-        <button id="dx-keep">我在专注</button>
-        <button id="dx-pause">帮我暂停</button>
+        <button id="dx-keep">刚才在专注</button>
+        <button id="dx-pause">刚才分神了</button>
       </div>
       <label class="dx-remind"><input type="checkbox" id="distract-remind" checked /> 之后还要再提醒我</label>
     </div>

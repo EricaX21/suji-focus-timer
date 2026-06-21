@@ -43,5 +43,10 @@ contextBridge.exposeInMainWorld('api', {
   flashAttention: () => ipcRenderer.send('flash-attention'),
   getIdleSettings: () => ipcRenderer.invoke('get-idle-settings'),
   setIdleSettings: (v) => ipcRenderer.invoke('set-idle-settings', v),
-  onIdleSettingsUpdated: (cb) => ipcRenderer.on('idle-settings-updated', cb)
+  onIdleSettingsUpdated: (cb) => ipcRenderer.on('idle-settings-updated', cb),
+
+  // ---------- 作息（熬夜党模式 / 一天的界线） ----------
+  getDaySettings: () => ipcRenderer.invoke('get-day-settings'),
+  setDaySettings: (v) => ipcRenderer.invoke('set-day-settings', v),
+  onDaySettingsUpdated: (cb) => ipcRenderer.on('day-settings-updated', cb)
 });

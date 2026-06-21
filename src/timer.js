@@ -29,6 +29,8 @@ let idleSettings = { idleEnabled: true, idleMinutes: 5, idleRemind: true };
 let idleRemind = true;   // 本日运行期"是否还要再提醒"（与设置同步）
 let distractShown = false; // 分神弹窗是否正显示
 let idleHandled = false;   // 本轮空闲是否已处理（恢复键鼠后重置，避免连环弹）
+let idleStartEpoch = 0;    // 本轮空闲真正开始的时刻（检测那刻锁存 = now - idleSec）
+let idlePausePending = false; // 分神"软暂停待裁决"中（已自动暂停，等用户选专注/分神）
 let ceremonyThenQuit = false; // 仪式总结卡关闭时是否退出应用（退出场景 true / 计划庆祝 false）
 let lastRestTipBlock = 0;  // 已提醒到第几个"连续 2h"块（单段内，暂停/开始重置）
 const MAX_HOURS = 14;    // 徽章 / 目标 / 有效专注的上限（与窗口宽度匹配）
@@ -628,9 +630,9 @@ function bindEvents() {
 
   // 仪式总结已独立成窗（src/summary.html），关闭/退出逻辑在 summary.js + 主进程 close-summary 里处理。
 
-  // 分神弹窗
-  document.getElementById('dx-keep').addEventListener('click', (e) => { e.stopPropagation(); hideDistract(); });
-  document.getElementById('dx-pause').addEventListener('click', (e) => { e.stopPropagation(); hideDistract(); if (running) pause(); });
+  // 分神弹窗（此时已自动软暂停）：裁决刚才那段算专注还是分神
+  document.getElementById('dx-keep').addEventListener('click', (e) => { e.stopPropagation(); idleWasFocus(); });        // 刚才在专注 → 时间还给我，继续
+  document.getElementById('dx-pause').addEventListener('click', (e) => { e.stopPropagation(); idleWasDistraction(); }); // 刚才分神 → 那段不计入，保持暂停
   document.getElementById('distract-remind').addEventListener('change', (e) => {
     idleRemind = e.target.checked;
     idleSettings.idleRemind = idleRemind;
@@ -664,6 +666,20 @@ function bindEvents() {
   // 分神设置变更后重新拉取
   window.api.onIdleSettingsUpdated(async () => {
     try { idleSettings = await window.api.getIdleSettings(); idleRemind = idleSettings.idleRemind; } catch (e) { /* 忽略 */ }
+  });
+
+  // 熬夜党模式切换 → 日界变了，暂停态下重载"今天"的数据（专注中不打断，下次暂停/启动生效）
+  window.api.onDaySettingsUpdated(async () => {
+    if (running) return;
+    const today = await window.api.todayStr();
+    data = await window.api.loadDay(today);
+    lastMilestone = Math.floor(data.totalFocusedMs / HOUR_MS);
+    goalDone = lastMilestone >= data.goalHours;
+    try { planState = await window.api.loadPlan(); } catch (e) { /* 忽略 */ }
+    buildBadges();
+    renderPlanLine();
+    render();
+    setTimeVisibility();
   });
 
   // 清除今日记录后，主进程通知这里从零重载（清除时已是暂停态）
@@ -771,20 +787,85 @@ function escapeHtml(s) {
 
 // ---------- 分神检测（系统空闲时间） ----------
 async function checkIdle() {
-  if (!running || overLimit) { idleHandled = false; return; }
+  if (overLimit) { idleHandled = false; return; }
+  if (idlePausePending || distractShown) return; // 已软暂停待裁决 / 弹窗中：先不重复
+  if (!running) { idleHandled = false; return; }
   if (!idleSettings.idleEnabled || !idleRemind) return;
-  if (distractShown) return;
   if (lastBucket === 'video') { idleHandled = false; return; } // 看视频不动键鼠属正常，豁免
   let idleSec = 0;
   try { idleSec = await window.api.getIdleTime(); } catch (e) { return; }
   const threshold = (idleSettings.idleMinutes || 5) * 60;
   if (idleSec >= threshold) {
-    if (idleHandled) return; // 同一轮空闲只弹一次
+    if (idleHandled) return; // 同一轮空闲只处理一次
     idleHandled = true;
+    autoPauseForIdle(idleSec); // 先自动暂停 + 回拨被误计的专注，再弹窗让用户裁决
     showDistract();
   } else {
     idleHandled = false;     // 已恢复键鼠活动，允许下次再判定
   }
+}
+
+// 检测到空闲：自动「软暂停」——把空闲那段从专注里回拨扣除、暂停起点回到空闲真正开始那刻，
+// 但先不写入 data.pauses（等用户裁决"刚才在专注/分神"）。
+function autoPauseForIdle(idleSec) {
+  commitElapsed();                              // 先结算到现在（含被误计的空闲段）
+  const idleMs = Math.max(0, Math.round(idleSec * 1000));
+  idleStartEpoch = Date.now() - idleMs;         // 锁存空闲真正开始的时刻
+  const back = Math.min(idleMs, data.totalFocusedMs);
+  data.totalFocusedMs -= back;                  // 把空闲段从有效专注里扣掉（钳到 0）
+  if (curIdx >= 0 && data.sessions[curIdx]) {
+    const s = data.sessions[curIdx];
+    s.durationMs = Math.max(0, s.durationMs - idleMs);
+    s.end = new Date(idleStartEpoch).toISOString();
+  }
+  running = false;
+  curIdx = -1;
+  idlePausePending = true;
+  lastRestTipBlock = 0;
+  updateEye(false);
+  render();
+  // 休息计时从"空闲开始那刻"起算（直接显示已空闲数分钟，而非从 0）
+  const r = document.getElementById('rest-time');
+  if (r) r.style.opacity = '1';
+  restStartEpoch = idleStartEpoch;
+  updateRest();
+  setTimeVisibility();
+  save();
+}
+
+// 裁决：刚才其实在专注（看书/纸质/手机）→ 把 空闲起点→现在 整段加回专注，并无缝继续
+function idleWasFocus() {
+  hideDistract();
+  if (!idlePausePending) { return; }
+  idlePausePending = false;
+  const creditMs = Math.max(0, Date.now() - idleStartEpoch);
+  data.totalFocusedMs += creditMs;
+  // 续上一段专注（从空闲开始时刻起，时长=刚才整段），保持计时连续
+  data.sessions.push({ start: new Date(idleStartEpoch).toISOString(), end: nowISO(), durationMs: creditMs });
+  curIdx = data.sessions.length - 1;
+  if (creditMs > data.longestStreakMs) data.longestStreakMs = creditMs;
+  runStartEpoch = Date.now();
+  running = true;
+  lastRestTipBlock = 0;
+  updateEye(true);
+  hideRest();
+  render();
+  setTimeVisibility();
+  save();
+}
+
+// 裁决：刚才分神/休息了 → 确认软暂停，此刻才正式记一次暂停（从空闲开始那刻），保持暂停
+function idleWasDistraction() {
+  hideDistract();
+  if (!idlePausePending) { if (running) pause(); return; }
+  idlePausePending = false;
+  data.pauses.push({ pauseAt: new Date(idleStartEpoch).toISOString(), resumeAt: null });
+  running = false;
+  curIdx = -1;
+  updateEye(false);
+  render();
+  setTimeVisibility(); // 休息仍从空闲起点续算；用户准备好再手动开始
+  save();
 }
 
 function showDistract() {

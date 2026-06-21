@@ -492,9 +492,9 @@ body.fullscreen #exit-fullscreen svg { width: 22px; height: 22px; }
   flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
   font-size: 13px; font-weight: 700;
 }
-#dx-keep, #ac-keep, .dx-actions button.sec { background: rgba(253,221,170,.12); color: var(--navajo); }
-#dx-keep:hover, #ac-keep:hover, .dx-actions button.sec:hover { background: rgba(253,221,170,.22); }
-#dx-pause, #ac-stop, .dx-actions button.pri { background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa)); color: var(--bistre); }
+#dx-pause, #ac-keep, .dx-actions button.sec { background: rgba(253,221,170,.12); color: var(--navajo); }
+#dx-pause:hover, #ac-keep:hover, .dx-actions button.sec:hover { background: rgba(253,221,170,.22); }
+#dx-keep, #ac-stop, .dx-actions button.pri { background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa)); color: var(--bistre); }
 .dx-remind {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   font-size: 11px; color: var(--khaki); margin-top: 12px; cursor: pointer;

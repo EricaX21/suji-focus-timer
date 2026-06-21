@@ -61,9 +61,15 @@ async function getActiveWindowFn() {
   return _activeWindowFn;
 }
 
+// 「一天」从几点开始：默认 0（午夜）；熬夜党模式=6（凌晨 6 点前算前一天）
+function getDayResetHour() {
+  try { return loadSettings().nightOwl === true ? 6 : 0; }
+  catch (e) { return 0; }
+}
 function todayStr() {
-  // 用本地时间生成 YYYY-MM-DD
-  const d = new Date();
+  // 用本地时间生成 YYYY-MM-DD，并按日界偏移：减去 resetHour，使深夜专注归前一天
+  const resetH = getDayResetHour();
+  const d = new Date(Date.now() - resetH * 3600 * 1000);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -273,7 +279,7 @@ function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
     width: 480,
-    height: 430,
+    height: 510,
     title: '溯迹 · 设置',
     icon: path.join(__dirname, 'icon.ico'),
     resizable: false,
@@ -556,6 +562,17 @@ ipcMain.on('flash-attention', () => {
   if (!timerWin.isVisible()) timerWin.show();
   try { timerWin.flashFrame(true); } catch (e) { /* 忽略 */ }
   try { timerWin.moveTop(); } catch (e) { /* 忽略 */ }
+});
+
+// 作息：熬夜党模式（存 settings.json）。改动后通知悬浮窗在暂停态下重载今天数据。
+ipcMain.handle('get-day-settings', () => ({ nightOwl: loadSettings().nightOwl === true }));
+ipcMain.handle('set-day-settings', (e, v) => {
+  v = v || {};
+  const s = loadSettings();
+  if (v.nightOwl != null) s.nightOwl = !!v.nightOwl;
+  saveSettings(s);
+  if (timerWin && !timerWin.isDestroyed()) timerWin.webContents.send('day-settings-updated');
+  return true;
 });
 
 // 分神提醒设置（存 settings.json，默认开启 / 5 分钟 / 再提醒）

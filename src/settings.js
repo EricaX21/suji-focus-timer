@@ -127,6 +127,14 @@ async function init() {
     window.api.setIdleSettings({ idleMinutes: v });
   });
 
+  // 作息：熬夜党模式
+  try {
+    const day = await window.api.getDaySettings();
+    document.getElementById('night-owl').checked = !!day.nightOwl;
+  } catch (e) { /* 忽略 */ }
+  document.getElementById('night-owl').addEventListener('change', (e) =>
+    window.api.setDaySettings({ nightOwl: e.target.checked }));
+
   // 清除今日记录（二次确认；旧记录归档不丢，复盘可查）
   const clearBtn = document.getElementById('clear-today');
   let clearArmed = false;
