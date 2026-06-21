@@ -289,55 +289,7 @@ html, body {
 #cat-now.client { color: var(--cat-client); }
 #cat-now.other { color: var(--cat-other); }
 
-/* 目标弹层 */
-#goal-modal {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.55);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 50;
-  -webkit-app-region: no-drag; /* 弹层打开时不触发拖窗 */
-}
-#goal-modal.hidden { display: none; }
-.modal-box {
-  background: var(--bistre); padding: 18px; border-radius: 14px;
-  width: 240px; color: var(--navajo);
-  -webkit-app-region: no-drag;
-  border: 1px solid rgba(223,111,33,.25);
-}
-.modal-title { font-size: 13px; margin-bottom: 12px; text-align: center; color: var(--navajo); display: flex; align-items: center; justify-content: center; gap: 6px; }
-.modal-title svg { width: 15px; height: 15px; color: var(--cocoa); }
-.goal-presets { display: flex; gap: 8px; margin-bottom: 10px; }
-.goal-presets button {
-  flex: 1; padding: 8px; border-radius: 8px; border: none;
-  background: rgba(253,221,170,.1); color: var(--navajo); cursor: pointer; font-size: 13px;
-}
-.goal-presets button:hover { background: var(--cocoa); color: var(--bistre); }
-.goal-custom { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 12px; color: var(--khaki); }
-.goal-custom input {
-  flex: 1; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--bistre-line);
-  background: var(--bistre2); color: var(--navajo); font-size: 13px;
-}
-#goal-warn { font-size: 12px; color: var(--cocoa-soft); margin: -6px 0 12px; }
-#goal-warn.hidden { display: none; }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.modal-actions button {
-  padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px;
-}
-#goal-cancel { background: rgba(253,221,170,.1); color: var(--navajo); }
-#goal-save { background: var(--cocoa); color: var(--bistre); font-weight: 600; }
-.autostart-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--khaki); margin-bottom: 14px; cursor: pointer;
-}
-.autostart-row input { width: 15px; height: 15px; accent-color: var(--cocoa); }
-.hotkey-row { font-size: 12px; color: var(--khaki); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
-.hotkey-row b { color: var(--cocoa); font-weight: 700; }
-#hotkey-edit {
-  margin-left: auto; padding: 3px 10px; border-radius: 6px; border: none;
-  background: rgba(253,221,170,.12); color: var(--navajo); cursor: pointer; font-size: 12px;
-  -webkit-app-region: no-drag;
-}
-#hotkey-edit:hover { background: var(--cocoa); color: var(--bistre); }
+/* 目标/设置已独立成窗（src/settings.html），原悬浮窗内 #goal-modal 弹层样式已移除（死代码清理） */
 
 /* 撒花 */
 #confetti {

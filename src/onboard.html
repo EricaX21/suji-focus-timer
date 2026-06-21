@@ -10,6 +10,14 @@
       --navajo: #FDDDAA; --khaki: #C2A489;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* 统一：自定义滚动条 + 焦点态（去网页感，见 DESIGN.md §5/§6） */
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(223,111,33,.32); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(223,111,33,.55); background-clip: content-box; }
+    input:focus, button:focus, select:focus, textarea:focus { outline: none; }
+    input:focus-visible, textarea:focus-visible { border-color: var(--cocoa); box-shadow: 0 0 0 2px rgba(223,111,33,.25); }
+    button:focus-visible { box-shadow: 0 0 0 2px rgba(223,111,33,.45); }
     body {
       font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
       background: linear-gradient(160deg, var(--bistre), var(--bistre2));
@@ -23,7 +31,6 @@
     /* 进行中计划 / 断签提示条 */
     #plan-banner { font-size: 13px; padding: 9px 12px; border-radius: 9px; margin-bottom: 14px; display: none; }
     #plan-banner.continue { background: rgba(223,111,33,.14); border: 1px solid rgba(223,111,33,.35); color: var(--navajo); }
-    #plan-banner.broken { background: rgba(204,59,46,.14); border: 1px solid rgba(204,59,46,.4); color: #e8896f; }
     #plan-banner b { color: var(--cocoa-soft); }
 
     .section { margin-bottom: 16px; }
