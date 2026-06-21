@@ -1,5 +1,8 @@
 # 改动历史
 
+> ⚠️ **2026-06-21 v15 已写完源码、待打包**：本批从 git 分阶段提交（仓库已 init，A→D 共 7 个提交）。
+> **改了 `main.js`/`preload.js` 与多个 `src/*` + 新增 `src/summary.html`/`summary.js`，必须重新打包才在用户日常 exe 里生效**（命令见最底部；建议加 `--ignore="^/\.devdata"` 排除测试数据）。详见下方「v15」段。
+>
 > ✅ **2026-06-17 已打包**：v13 大升级全部打包上线（输出仍为 `dist\溯迹-win32-x64\溯迹.exe`，快捷方式路径不变）。详见下方「v13」段。
 >
 > ✅ **2026-06-15 已再次打包**：v6～v12 全部打包上线（输出仍为 `dist\溯迹-win32-x64\溯迹.exe`，桌面/开机快捷方式路径不变）。
@@ -8,6 +11,18 @@
 > ✅ **2026-06-14 已重新打包**：输出名"溯迹"，新 exe 在 `dist\溯迹-win32-x64\溯迹.exe`，
 > 桌面 + 开机启动快捷方式都已指向它（旧的 `dist\StudyTimer-win32-x64` 已废弃，可手动删）。
 > 下方所有改动现已生效。以后再改源码仍需重新打包（命令见最底部）。
+
+## v15：今日总结独立窗 + 跨天逻辑修正 + 全屏看视频 + UI 规范（2026-06-21 ⚠️待打包）
+新增文件：`src/summary.html` + `src/summary.js` + `DESIGN.md`。改动：`main.js`、`preload.js`、`src/timer.js`/`timer.html`/`timer.css`、`src/settings.html`/`settings.js`、`src/onboard.html`/`onboard.js`、`src/stats.js`、`.gitignore`。
+- **A1 暂停旗子遮挡**：`#center-slot`/`#hour-wrap` 边距加大，最小窗口下大数字不再压住旗子。
+- **A2 今日总结独立成窗**：第五个 BrowserWindow `createSummaryWindow`；悬浮窗 `buildSummaryPayload` 算好数据经 `open-summary` 交主进程开窗，`close-summary` 区分退出收工(关即退)/计划庆祝(仅关)；撒花/叮声移入 summary。退役悬浮窗内 `#ceremony` 浮层 + CSS。**修了"总结被困小窗、退不出"**。
+- **B1 熬夜党模式**：`todayStr()` 减 `dayResetHour`（默认 0；`nightOwl` 开=6）。`get/set-day-settings` IPC + 设置窗开关 + 切换后悬浮窗暂停态软重载。
+- **B4 分神自动暂停 + 时间回拨**：`autoPauseForIdle`（按 `idleSec` 回拨被误计专注、休息从空闲起点、暂不写 `pauses`）+ `idleWasFocus`/`idleWasDistraction` 事后裁决。弹窗文案改"已自动暂停 / 刚才在专注·刚才分神"。
+- **B2 漏天温柔降级**：`planWithDerived` 加 `quality`(Σmin(实际,目标)/(目标×已过天数))/`hasShortfall`/`promptedToday`；去掉 `broken` 硬失败、启动不再静默接续而是 `#shortfall-overlay` 温柔提示（`postpone-plan` 延后一天 / `ack-shortfall` 继续）；完成度展示进总结/onboard/设置/复盘。
+- **B3 计划趣味命名**：`planNameFromReward` + `plan.name`/`nameCustom` + `suggest-plan-name` IPC；onboard 选填名+占位预览；设置「当前计划」+复盘头部展示。
+- **C 全屏看视频**：主进程 `checkExternalFullscreen`(每3s) → `body.mini` 顶部药丸 / 隐藏；`fullscreenMode` 设置 + `get/set-fs-mode` IPC + 设置窗单选。
+- **D UI 打磨**：`DESIGN.md` 设计规范；复盘/设置/onboard 自定义滚动条+焦点态；清死样式（`#goal-modal`/`#plan-banner.broken`）。
+- **工程**：`appRoot()` 支持 `STUDYTIMER_DATA_DIR` 隔离测试数据；项目 `git init`。
 
 ## v13：目标/计划/奖励 + 分神 + 智能退出 + 复盘重构（2026-06-17 已打包）
 新增文件：`src/onboard.html` + `src/onboard.js`。改动：`main.js`、`preload.js`、`src/timer.js`/`timer.html`/`timer.css`、`src/categories.js`、`src/settings.html`/`settings.js`、`src/stats.html`/`stats.js`。
