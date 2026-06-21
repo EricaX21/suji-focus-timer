@@ -48,6 +48,29 @@ function savePlan(p) {
   } catch (e) { /* 忽略写失败 */ }
 }
 
+// 依「奖励」关键词取一个有趣的默认计划名；无匹配则用日期兜底（如「6月21日计划」）。
+// 每类多个候选随机取一个增加惊喜。仅在用户没自定义名字时使用。
+const PLAN_NAME_TABLE = [
+  { kw: ['咖啡', '拿铁', '美式', '咖啡因', 'latte', 'coffee'], names: ['咖啡续命计划', '牛马快乐水计划', '续命咖啡计划'] },
+  { kw: ['奶茶', '茶', '可乐', '快乐水'], names: ['奶茶自由计划', '快乐水续命计划'] },
+  { kw: ['剧', '电影', '番', '追剧', '电视', '动画', '综艺'], names: ['追剧基金计划', '看剧回血计划'] },
+  { kw: ['睡', '懒觉', '补觉', '躺'], names: ['补觉计划', '睡到自然醒计划'] },
+  { kw: ['吃', '火锅', '餐', '饭', '零食', '好吃', '美食', '炸鸡', '烧烤', '甜', '蛋糕', '冰淇淋'], names: ['干饭计划', '犒劳干饭计划', '大餐基金计划'] },
+  { kw: ['买', '心愿', '剁手', '购', '包', '鞋', '裙', '衣'], names: ['剁手基金计划', '心愿剁手计划'] },
+  { kw: ['玩', '游戏', '打游戏', 'steam', '开黑'], names: ['开黑基金计划', '快乐游戏计划'] },
+  { kw: ['旅', '出去', '逛', '出门', '放风', '玩耍'], names: ['出逃计划', '放风计划'] }
+];
+function planNameFromReward(reward, startDate) {
+  const r = String(reward || '').toLowerCase();
+  for (const e of PLAN_NAME_TABLE) {
+    if (e.kw.some(k => r.includes(k.toLowerCase()))) {
+      return e.names[Math.floor(Math.random() * e.names.length)];
+    }
+  }
+  const [, m, d] = String(startDate || todayStr()).split('-').map(Number);
+  return `${m}月${d}日计划`;
+}
+
 let timerWin = null;
 let statsWin = null;
 let settingsWin = null;
@@ -308,7 +331,7 @@ function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
     width: 480,
-    height: 510,
+    height: 560,
     title: '溯迹 · 设置',
     icon: path.join(__dirname, 'icon.ico'),
     resizable: false,
@@ -516,6 +539,9 @@ ipcMain.on('set-autostart', (e, val) => {
 // ---------- 计划（多天 + 连续打卡 + 奖励） ----------
 ipcMain.handle('load-plan', () => planWithDerived(loadPlan()));
 
+// 按奖励给一个趣味默认计划名（onboard 实时预览占位用）
+ipcMain.handle('suggest-plan-name', (e, reward) => planNameFromReward(reward, todayStr()));
+
 // 确认计划（来自 onboarding）：写 plan.json + 同步当天目标，通知悬浮窗并显示
 // incoming: { goalHours, oneShot, durationDays, reward, rewardCustom, restart }
 ipcMain.handle('confirm-plan', (e, incoming) => {
@@ -525,6 +551,8 @@ ipcMain.handle('confirm-plan', (e, incoming) => {
   const clampDays = (n) => Math.max(1, Math.min(5, Math.round(Number(n) || 1)));
   const prev = loadPlan();
   let plan;
+  const givenName = (incoming.name && incoming.name.trim()) ? incoming.name.trim() : '';        // 用户手填的名字
+  const autoName = (incoming.nameAuto && incoming.nameAuto.trim()) ? incoming.nameAuto.trim() : ''; // onboard 预览过的趣味名（保证预览=最终）
   if (incoming.restart || !prev) {
     plan = {
       goalHours: incoming.goalHours || 12,
@@ -532,18 +560,23 @@ ipcMain.handle('confirm-plan', (e, incoming) => {
       durationDays: incoming.oneShot ? 1 : clampDays(incoming.durationDays),
       reward: incoming.reward || '',
       rewardCustom: !!incoming.rewardCustom,
+      name: givenName || autoName || planNameFromReward(incoming.reward, today),
+      nameCustom: !!givenName,
       startDate: today,
       completedDates: [],
       lastConfirmedDate: today
     };
   } else {
-    // 继续进行中的多天计划：保留 startDate / completedDates，只更新目标/奖励/确认日
+    // 继续进行中的多天计划：保留 startDate / completedDates / 计划名，只更新目标/奖励/确认日
     plan = Object.assign({}, prev, {
       goalHours: incoming.goalHours || prev.goalHours || 12,
       oneShot: incoming.oneShot != null ? !!incoming.oneShot : !!prev.oneShot,
       durationDays: incoming.oneShot ? 1 : clampDays(incoming.durationDays || prev.durationDays),
       reward: incoming.reward != null ? incoming.reward : (prev.reward || ''),
       rewardCustom: !!incoming.rewardCustom,
+      // 计划名：用户这次手填了就用新的；否则沿用旧名（进行中不随奖励乱改名）
+      name: givenName || prev.name || autoName || planNameFromReward(incoming.reward || prev.reward, prev.startDate || today),
+      nameCustom: givenName ? true : !!prev.nameCustom,
       lastConfirmedDate: today
     });
     if (!plan.startDate) plan.startDate = today;

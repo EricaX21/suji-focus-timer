@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // ---------- 计划（多天 + 连续打卡 + 奖励） ----------
   loadPlan: () => ipcRenderer.invoke('load-plan'),
+  suggestPlanName: (reward) => ipcRenderer.invoke('suggest-plan-name', reward),
   confirmPlan: (p) => ipcRenderer.invoke('confirm-plan', p),
   onPlanUpdated: (cb) => ipcRenderer.on('plan-updated', (e, p) => cb(p)),
   markDayComplete: () => ipcRenderer.invoke('mark-day-complete'),

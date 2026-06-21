@@ -51,11 +51,11 @@
     #goal-warn, #day-warn { font-size: 12px; color: var(--cocoa-soft); margin-top: 8px; line-height: 1.5; }
     #goal-warn.hidden, #day-warn.hidden { display: none; }
 
-    #reward-input {
+    #reward-input, #name-input {
       width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--bistre-line);
       background: var(--bistre2); color: var(--navajo); font-size: 13px;
     }
-    #reward-input::placeholder { color: var(--khaki); opacity: .7; }
+    #reward-input::placeholder, #name-input::placeholder { color: var(--khaki); opacity: .7; }
 
     /* 奖励预览：把现有奖励体系可视化 */
     .preview {
@@ -139,6 +139,11 @@
       <button class="chip" type="button">🍜 吃顿好的</button>
     </div>
     <input id="reward-input" type="text" maxlength="40" placeholder="也可以自己写一个想要的奖励" />
+  </div>
+
+  <div class="section">
+    <div class="sec-title">给这个计划起个名字（选填）</div>
+    <input id="name-input" type="text" maxlength="20" placeholder="默认按奖励取个有趣的名字" />
   </div>
 
   <div class="preview">

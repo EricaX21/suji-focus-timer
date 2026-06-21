@@ -47,11 +47,13 @@ async function renderPlanInfo() {
   try { plan = await window.api.loadPlan(); } catch (e) { plan = null; }
   if (!plan) { el.style.display = 'none'; return; }
   el.style.display = '';
+  const nameTxt = plan.name ? `「${escapeHtml(plan.name)}」 ` : '';
   const dayTxt = plan.oneShot ? '仅此一次' : `第 <b>${Math.min(plan.dayIndex, plan.totalDays)}/${plan.totalDays}</b> 天`;
   const streakTxt = plan.currentStreak > 0 ? ` · 连续 <b>${plan.currentStreak}</b> 天` : '';
+  const qTxt = (typeof plan.quality === 'number' && !plan.oneShot) ? ` · 完成度 <b>${plan.quality}%</b>` : '';
   const reward = plan.reward ? ` · <span class="reward">🎁 ${escapeHtml(plan.reward)}</span>` : '';
   const doneTxt = plan.planDone ? ' · ✅ 计划已完成' : '';
-  el.innerHTML = `计划：${dayTxt}${streakTxt}${reward}${doneTxt}`;
+  el.innerHTML = `${nameTxt}${dayTxt}${streakTxt}${qTxt}${reward}${doneTxt}`;
 }
 
 // ---------- 每小时产出折线图 ----------

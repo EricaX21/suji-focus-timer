@@ -7,6 +7,7 @@ let selDays = 1;         // 计划天数
 let selOneShot = true;   // 是否"仅此一次"
 let rewardCustom = false;// 用户是否自定义过奖励文案
 let continuing = false;  // 是否在继续一个进行中的多天计划
+let suggestedName = '';  // 按奖励预览到的趣味默认名（确认时一并送出，保证预览=最终）
 
 function defaultReward(oneShot, days) {
   if (oneShot) return '给今天的自己一点小奖励 🎁';
@@ -48,6 +49,21 @@ function renderPreview() {
 function syncRewardPlaceholder() {
   const inp = document.getElementById('reward-input');
   inp.placeholder = defaultReward(selOneShot, selDays);
+}
+
+// 当前生效的奖励文案（用户填了用填的，否则用默认）
+function effectiveReward() {
+  const inp = document.getElementById('reward-input');
+  return (rewardCustom && inp.value.trim()) ? inp.value.trim() : defaultReward(selOneShot, selDays);
+}
+// 按当前奖励刷新「计划名」输入框的占位预览（继续模式不动：placeholder 已是现有计划名）
+async function updateNamePlaceholder() {
+  if (continuing) return;
+  try {
+    suggestedName = await window.api.suggestPlanName(effectiveReward());
+    const inp = document.getElementById('name-input');
+    if (inp && !inp.value.trim()) inp.placeholder = `默认：${suggestedName}`;
+  } catch (e) { /* 忽略 */ }
 }
 
 // ---------- 目标小时选择 ----------
@@ -103,6 +119,8 @@ function bind() {
     rewardCustom = true;
     renderPreview();
   });
+  // 占位预览用 change（失焦/回车）而非每次输入，避免随机趣味名抖动
+  document.getElementById('reward-input').addEventListener('change', updateNamePlaceholder);
 
   // 预设奖励 chip：点选即填入文本框（可再手动改）
   document.querySelectorAll('#reward-chips .chip').forEach(c => {
@@ -113,6 +131,7 @@ function bind() {
       document.querySelectorAll('#reward-chips .chip').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
       renderPreview();
+      updateNamePlaceholder(); // 选了奖励 → 刷新趣味名预览
     });
   });
 
@@ -131,6 +150,7 @@ async function confirmPlan() {
   if (selGoal < 1) selGoal = 1;
   const inp = document.getElementById('reward-input');
   const reward = (rewardCustom && inp.value.trim()) ? inp.value.trim() : defaultReward(selOneShot, selDays);
+  const name = document.getElementById('name-input').value.trim(); // 用户手填的计划名（可空）
   // 继续进行中的多天计划 → 不重置；否则全新（含选了"仅此一次"）
   const restart = !continuing || selOneShot;
   await window.api.confirmPlan({
@@ -139,6 +159,8 @@ async function confirmPlan() {
     durationDays: selOneShot ? 1 : selDays,
     reward,
     rewardCustom,
+    name,                 // 手填名（空则用 nameAuto / 服务端生成）
+    nameAuto: suggestedName, // 预览过的趣味名，保证预览=最终
     restart
   });
   window.close(); // 主进程也会关，这里兜底
@@ -183,11 +205,17 @@ async function init() {
     if (dchip) dchip.classList.add('active');
     else document.getElementById('day-input').value = selDays;
     if (plan.reward) document.getElementById('reward-input').value = plan.reward;
+    // 继续模式：计划名固定，输入框占位显示当前名（留空=沿用，手填=改名）
+    if (plan.name) {
+      suggestedName = plan.name;
+      document.getElementById('name-input').placeholder = `当前：${plan.name}`;
+    }
   }
 
   syncRewardPlaceholder();
   renderPreview();
   bind();
+  updateNamePlaceholder(); // 初始按当前奖励给出趣味名预览（继续模式内部会跳过）
 }
 
 init();

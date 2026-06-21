@@ -102,6 +102,17 @@ async function init() {
   const today = await window.api.todayStr();
   const data = await window.api.loadDay(today);
   document.getElementById('goal-input').value = data.goalHours;
+
+  // 当前计划名 + 进度 / 完成度
+  try {
+    const plan = await window.api.loadPlan();
+    const el = document.getElementById('plan-line');
+    if (el) {
+      if (!plan) el.textContent = '当前没有进行中的计划';
+      else if (plan.oneShot) el.textContent = `「${plan.name || '今日计划'}」· 仅此一次 · 目标 ${plan.goalHours}h`;
+      else el.textContent = `「${plan.name || '计划'}」· 第 ${Math.min(plan.dayIndex, plan.totalDays)}/${plan.totalDays} 天 · 连续 ${plan.currentStreak} 天 · 完成度 ${plan.quality}%`;
+    }
+  } catch (e) { /* 忽略 */ }
   document.getElementById('autostart').checked = await window.api.getAutostart();
   await refreshHotkeyDisplay();
 
