@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="timer.css" />
+</head>
+<body>
+  <div id="card" class="paused">
+    <!-- 顶部拖动条 -->
+    <div id="dragbar">
+      <span id="appname">溯迹</span>
+      <span id="status-eye"></span>
+      <span id="status-text">已暂停</span>
+      <span id="mini-focus"></span>
+      <div id="tools">
+        <button id="btn-fullscreen" class="tool" title="全屏专注"><i data-lucide="maximize"></i></button>
+        <button id="btn-stats" class="tool" title="今日复盘"><i data-lucide="bar-chart-3"></i></button>
+        <button id="btn-goal" class="tool" title="设置目标"><i data-lucide="settings"></i></button>
+        <button id="btn-quit" class="tool" title="退出"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+
+    <!-- 中央大显示：专注时跑专注总时长；暂停时跑休息计时 -->
+    <div id="center-slot">
+      <div id="focus-time" class="bigtime">00:00:00</div>
+      <div id="rest-time" class="bigtime"><span class="rest-tag">休息</span><span id="rest-clock">00:00</span></div>
+    </div>
+
+    <!-- 当前小时浓缩时间轴：贴在按钮正上方、与按钮等长。
+         （未来可做成可爱进度：履带+货物 / 土地+萝卜 等，此处先规划布局） -->
+    <div id="hour-wrap">
+      <div id="hour-flags"></div>
+      <div id="hour-bar"></div>
+    </div>
+
+    <!-- 超大暂停/开始按钮（紧贴浓缩条下方）。图标与文案由 timer.js 按状态切换 -->
+    <button id="big-toggle"><i data-lucide="play" class="bt-icon"></i><span class="bt-label">点我开始专注</span></button>
+
+    <!-- 小时进度文字：放在按钮与徽章之间 -->
+    <div id="hour-label">第 <b>1</b> 小时 · <b>0</b> / 60 分钟</div>
+
+    <!-- 徽章墙 -->
+    <div id="badges"></div>
+
+    <!-- 一行三信息：本次专注 · 当前内容 · 今日暂停 -->
+    <div id="liveinfo">
+      <span id="session-info">本次专注 0 分钟</span>
+      <span id="catinfo">当前：<span id="cat-now">—</span></span>
+      <span id="pause-info">今日暂停 0 次</span>
+    </div>
+
+    <!-- 全屏专注模式专用：一行励志文案 + 退出全屏按钮（仅 body.fullscreen 时显示） -->
+    <div id="fs-tagline">专注中 · 你正在累积今天的产出</div>
+    <button id="exit-fullscreen" class="tool" title="退出全屏"><i data-lucide="minimize"></i></button>
+  </div>
+
+  <!-- 设置已改为独立窗口（src/settings.html），不再用悬浮窗内的蒙版弹层 -->
+
+  <!-- 撒花画布 -->
+  <canvas id="confetti"></canvas>
+  <!-- 全屏达成庆祝 -->
+  <div id="goal-celebrate" class="hidden"><i data-lucide="trophy"></i><span>今日目标达成！去领奖励</span></div>
+
+  <!-- 分神提醒弹窗（鼠键长时间无操作时弹出） -->
+  <div id="distract-overlay" class="hidden">
+    <div class="dx-box">
+      <div class="dx-title"><i data-lucide="bell-ring"></i> 你还在专注吗？</div>
+      <div class="dx-desc">已经 <b id="distract-min">5</b> 分钟没有键盘鼠标操作了，是不是分神了？</div>
+      <div class="dx-actions">
+        <button id="dx-keep">我在专注</button>
+        <button id="dx-pause">帮我暂停</button>
+      </div>
+      <label class="dx-remind"><input type="checkbox" id="distract-remind" checked /> 之后还要再提醒我</label>
+    </div>
+  </div>
+
+  <!-- 连续 2 小时休息提醒 -->
+  <div id="rest-tip-overlay" class="hidden">
+    <div class="dx-box">
+      <div class="dx-title"><i data-lucide="coffee"></i> 该歇一歇啦</div>
+      <div class="dx-desc" id="rest-tip-text">已经连续 2 小时啦，起来喝口水、活动下肩颈 💧</div>
+      <div class="dx-actions">
+        <button id="rest-go" class="pri">去休息一下</button>
+        <button id="rest-skip" class="sec">再坚持一会儿</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 退出：智能退出弹窗（按今日目标做完没分流） -->
+  <div id="exit-overlay" class="hidden">
+    <div class="dx-box">
+      <div id="exit-done" class="hidden">
+        <div class="dx-title"><i data-lucide="party-popper"></i> 今天目标已完成！</div>
+        <div class="dx-desc">辛苦啦，要看看今天的总结吗？</div>
+        <div class="dx-actions">
+          <button id="exit-summary" class="pri">查看今日总结</button>
+          <button id="exit-now-done" class="sec">直接退出</button>
+        </div>
+      </div>
+      <div id="exit-undone" class="hidden">
+        <div class="dx-title"><i data-lucide="hourglass"></i> 今日目标还没完成哦</div>
+        <div class="dx-desc" id="exit-undone-desc">再坚持一下？</div>
+        <div class="dx-actions">
+          <button id="exit-keep" class="pri">继续专注</button>
+          <button id="exit-giveup" class="sec">放弃并退出</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 放弃今天 二次确认 -->
+  <div id="abort-confirm" class="hidden">
+    <div class="ac-box">
+      <div class="ac-title">确定要放弃今天吗？</div>
+      <div class="ac-desc">放弃后今天的连续打卡会中断。要不要再想想？</div>
+      <div class="ac-actions">
+        <button id="ac-keep">再想想</button>
+        <button id="ac-stop">确定放弃并退出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 收工/终止/计划完成 仪式总结层 -->
+  <div id="ceremony" class="hidden">
+    <div class="ce-card">
+      <div class="ce-emoji" id="ce-emoji">🌙</div>
+      <div class="ce-title" id="ce-title">今天收工啦</div>
+      <div class="ce-sub" id="ce-sub"></div>
+      <div class="ce-stats" id="ce-stats"></div>
+      <div class="ce-reward" id="ce-reward"></div>
+      <button id="ce-close">好的</button>
+    </div>
+  </div>
+
+  <script src="lucide.min.js"></script>
+  <script src="categories.js"></script>
+  <script src="timer.js"></script>
+</body>
+</html>

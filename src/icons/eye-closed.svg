@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 溯迹 · 暂停态「闭眼」图标。运行时定义在 src/timer.js 的 EYE_CLOSED。
+     与 eye-open 共用 viewBox 0 0 120 90 和同一条下弧线（M15,39 c30,20,60,20,90,0）：
+     闭眼=只剩这条下弧线 + 朝下睫毛；睁眼时上眼睑/虹膜在它上方起落 → 眨眼感。
+     运行时 stroke 为 currentColor（跟主题换色）；这里临时填暖灰 #C2A489 仅供预览。 -->
+<svg width="240" height="180" viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"
+     fill="none" stroke="#C2A489" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 下眼睑（公共下弧线，与睁眼完全重合） -->
+  <path d="M15 39 c30 20 60 20 90 0"/>
+  <!-- 三根朝下睫毛（与睁眼上睫毛同列：左外撇 / 中垂直 / 右外撇） -->
+  <path d="M37.5 50 l-6 15"/>
+  <path d="M60 54 V69"/>
+  <path d="M82.5 50 l6 15"/>
+</svg>

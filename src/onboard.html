@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>溯迹 · 今天的目标</title>
+  <style>
+    :root {
+      --bistre: #37241F; --bistre2: #2a1b16; --bistre-line: #4a342b;
+      --cocoa: #DF6F21; --cocoa-soft: #f0a25a; --persian: #D38D4F;
+      --navajo: #FDDDAA; --khaki: #C2A489;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, var(--bistre), var(--bistre2));
+      color: var(--navajo); padding: 20px 22px 18px; min-height: 100vh;
+      -webkit-user-select: none; user-select: none;
+    }
+    h1 { font-size: 18px; margin-bottom: 4px; color: var(--navajo); font-weight: 800; }
+    h1 .brand { color: var(--cocoa); letter-spacing: 2px; }
+    .subtitle { font-size: 12px; color: var(--khaki); margin-bottom: 14px; }
+
+    /* 进行中计划 / 断签提示条 */
+    #plan-banner { font-size: 13px; padding: 9px 12px; border-radius: 9px; margin-bottom: 14px; display: none; }
+    #plan-banner.continue { background: rgba(223,111,33,.14); border: 1px solid rgba(223,111,33,.35); color: var(--navajo); }
+    #plan-banner.broken { background: rgba(204,59,46,.14); border: 1px solid rgba(204,59,46,.4); color: #e8896f; }
+    #plan-banner b { color: var(--cocoa-soft); }
+
+    .section { margin-bottom: 16px; }
+    .sec-title { font-size: 13px; color: var(--khaki); margin-bottom: 8px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      padding: 8px 14px; border-radius: 8px; border: 1px solid transparent;
+      background: rgba(253,221,170,.1); color: var(--navajo); cursor: pointer; font-size: 13px;
+    }
+    .chip:hover { background: rgba(223,111,33,.3); }
+    .chip.active { background: var(--cocoa); color: var(--bistre); font-weight: 700; }
+
+    .custom { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .custom input {
+      width: 120px; padding: 7px 11px; border-radius: 7px; border: 1px solid var(--bistre-line);
+      background: var(--bistre2); color: var(--navajo); font-size: 13px;
+    }
+    .custom > span { font-size: 12px; color: var(--khaki); }
+    /* 去掉数字框上下箭头：它会遮住「自定义天数」占位文字 */
+    input[type=number] { -moz-appearance: textfield; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+    #goal-warn, #day-warn { font-size: 12px; color: var(--cocoa-soft); margin-top: 8px; line-height: 1.5; }
+    #goal-warn.hidden, #day-warn.hidden { display: none; }
+
+    #reward-input {
+      width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--bistre-line);
+      background: var(--bistre2); color: var(--navajo); font-size: 13px;
+    }
+    #reward-input::placeholder { color: var(--khaki); opacity: .7; }
+
+    /* 奖励预览：把现有奖励体系可视化 */
+    .preview {
+      background: var(--bistre2); border: 1px solid rgba(223,111,33,.2);
+      border-radius: 11px; padding: 12px 14px; margin-bottom: 16px;
+    }
+    .preview .pv-title { font-size: 12px; color: var(--khaki); margin-bottom: 8px; }
+    .pv-badges { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 9px; }
+    .pv-badge {
+      width: 18px; height: 18px; border-radius: 50%; font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(253,221,170,.1); color: var(--khaki);
+    }
+    .pv-badge.lit {
+      background: radial-gradient(circle at 30% 30%, var(--cocoa-soft), var(--cocoa));
+      color: var(--bistre); box-shadow: 0 0 6px rgba(223,111,33,.6);
+    }
+    .pv-list { font-size: 12px; color: var(--navajo); line-height: 1.7; }
+    .pv-list .ic { color: var(--cocoa-soft); margin-right: 5px; }
+    .pv-list .reward { color: #f0c850; font-weight: 700; }
+
+    #confirm {
+      width: 100%; padding: 12px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa));
+      color: var(--bistre); font-weight: 800; font-size: 15px; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(223,111,33,.45);
+    }
+    #confirm:hover { filter: brightness(1.05); }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); } 40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); } 80% { transform: translateX(6px); }
+    }
+    body.shake { animation: shake .42s ease; }
+  </style>
+</head>
+<body>
+  <h1><span class="brand">溯迹</span> · 今天的目标</h1>
+  <div class="subtitle">只在你真正专注时点开始，量化每天的有效产出。</div>
+
+  <div id="plan-banner"></div>
+
+  <div class="section">
+    <div class="sec-title">今天想专注多久？</div>
+    <div class="chips" id="goal-chips">
+      <button class="chip" data-h="6">6 小时</button>
+      <button class="chip" data-h="8">8 小时</button>
+      <button class="chip active" data-h="12">12 小时</button>
+      <button class="chip" data-h="14">14 小时</button>
+    </div>
+    <div class="custom">
+      <input id="goal-input" type="number" min="1" max="14" step="0.5" placeholder="自定义" />
+      <span>小时（上限 14）</span>
+    </div>
+    <div id="goal-warn" class="hidden">目标最多 14 小时，已自动帮你调整～</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">这个计划要维持多少天？（最多 5 天）</div>
+    <div class="chips" id="day-chips">
+      <button class="chip active" data-d="1" data-one="1">仅此一次</button>
+      <button class="chip" data-d="2">2 天</button>
+      <button class="chip" data-d="3">3 天</button>
+      <button class="chip" data-d="5">5 天</button>
+    </div>
+    <div class="custom">
+      <input id="day-input" type="number" min="1" max="5" step="1" placeholder="自定义天数" />
+      <span>天</span>
+    </div>
+    <div id="day-warn" class="hidden">最多 5 天～与其攒一个越来越大的奖励，不如每满 5 天就奖励自己一次，更容易坚持 🎁</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">坚持下来，给自己什么奖励？</div>
+    <div class="chips" id="reward-chips" style="margin-bottom:8px;">
+      <button class="chip" type="button">☕ 一杯喜欢的咖啡</button>
+      <button class="chip" type="button">🎬 看一集想看的剧</button>
+      <button class="chip" type="button">🎁 买个小心愿</button>
+      <button class="chip" type="button">😴 睡个懒觉</button>
+      <button class="chip" type="button">🍜 吃顿好的</button>
+    </div>
+    <input id="reward-input" type="text" maxlength="40" placeholder="也可以自己写一个想要的奖励" />
+  </div>
+
+  <div class="preview">
+    <div class="pv-title">这份努力会收获 👇</div>
+    <div class="pv-badges" id="pv-badges"></div>
+    <div class="pv-list">
+      <div><span class="ic">🎖️</span>每满 1 小时点亮一枚徽章，慢慢集满今天的目标</div>
+      <div><span class="ic">💧</span>连续专注满 2 小时，会提醒你喝水、起身活动一下</div>
+      <div id="pv-reward-line"><span class="ic">🏆</span>达成计划，兑现奖励：<span class="reward" id="pv-reward">给自己一份小奖励 🎁</span></div>
+    </div>
+  </div>
+
+  <button id="confirm">开始今天的专注</button>
+
+  <script src="onboard.js"></script>
+</body>
+</html>

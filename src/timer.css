@@ -1,0 +1,539 @@
+/* ===== 南瓜暖秋色卡 ===== */
+:root {
+  --bistre: #37241F;       /* 主背景深棕 */
+  --bistre2: #2a1b16;      /* 更深一档（渐变） */
+  --bistre-line: #4a342b;  /* 空轨道/描边 */
+  --cocoa: #DF6F21;        /* 主橙 */
+  --cocoa-soft: #f0a25a;   /* 主橙提亮（按钮渐变上端） */
+  --persian: #D38D4F;      /* 次橙 */
+  --persian-deep: #b9743a; /* 次橙压暗 */
+  --navajo: #FDDDAA;       /* 奶白 */
+  --khaki: #C2A489;        /* 暖灰 */
+  /* 内容三色（看视频/客户沟通/其他工作） */
+  --cat-video: #DF6F21;
+  --cat-client: #C2A489;
+  --cat-other: #FDDDAA;
+  --flag-red: #cc3b2e;     /* 沉稳红（终点红旗） */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: transparent;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+#card {
+  margin: 0;
+  height: 100vh;          /* 充满窗口，支持自由拉伸 */
+  -webkit-app-region: drag; /* 整张卡片空白区都可拖动（按钮/工具/弹层设 no-drag 排除） */
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px 12px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, var(--bistre), var(--bistre2));
+  color: var(--navajo);
+  /* 按用户要求：去掉边框与投影外晕，卡片干净无边无晕。
+     专注/暂停的反馈改由眼睛图标、状态文字、按钮配色承担。 */
+}
+
+/* 顶部拖动条 */
+#dragbar {
+  -webkit-app-region: drag;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  font-size: 12px;
+  color: var(--khaki);
+  white-space: nowrap; /* 溯迹 / 已暂停 等始终一行排开，不竖排换行 */
+}
+#dragbar > span { flex: none; }
+#appname {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--cocoa);
+  letter-spacing: 2px;
+  margin-right: 2px;
+}
+/* 状态眼睛图标（睁眼=专注 / 闭眼=暂停）。颜色随状态：专注主橙、暂停暖灰 */
+#status-eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 18px;
+}
+#card.running #status-eye { color: var(--cocoa); }
+#card.paused #status-eye { color: var(--khaki); }
+#status-text { font-weight: 700; display: inline-block; min-width: 3.4em; }
+#card.running #status-text { color: var(--cocoa); }
+#card.paused #status-text { color: var(--khaki); }
+/* 左上角的"专注总时长"小字（暂停时出现在状态文字之后） */
+#mini-focus {
+  position: absolute;
+  left: 114px; top: 3px;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--khaki);
+  opacity: 0;            /* 显隐由 JS（setTimeVisibility / animateTimeSwap）控制 */
+  pointer-events: none;
+}
+
+#tools {
+  -webkit-app-region: no-drag;
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.tool {
+  -webkit-app-region: no-drag;
+  background: rgba(253,221,170,.10);
+  border: none; color: var(--navajo); cursor: pointer;
+  width: 22px; height: 22px; border-radius: 6px;
+  font-size: 12px; line-height: 1;
+}
+.tool:hover { background: rgba(223,111,33,.40); }
+/* 工具栏 Lucide 图标：描边色继承按钮文字色（navajo），尺寸用 CSS 控制 */
+.tool svg { width: 14px; height: 14px; }
+
+/* 中央大显示槽：固定高度，专注时长与休息计时叠放居中 */
+#center-slot {
+  position: relative;
+  flex: 1 1 auto;     /* 拉高窗口时中部弹性占据多余空间，时间保持垂直居中 */
+  min-height: 46px;
+  margin: 11px 0 4px; /* 上间距=下间距(4)+浓缩条上边距(7)=11，数字在"顶部行↔浓缩条"之间对称居中（只动上边距，不动下边距） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bigtime {
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  font-size: clamp(40px, 17vmin, 120px); /* 随窗口尺寸自适应放大：拉到最大时明显更大，到上限封顶 */
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+}
+/* 专注总时长：专注时居中放大；暂停时缩小上移到左上角（与 mini-focus 衔接） */
+#focus-time {
+  color: var(--navajo);
+  opacity: 0;            /* 显隐与中↔上 FLIP 位移由 JS（animateTimeSwap）控制 */
+  pointer-events: none;
+}
+
+/* 休息计时：暂停时出现并从 0 计时（显隐由 JS 直接切 opacity，无动画） */
+#rest-time { color: var(--khaki); opacity: 0; }
+.rest-tag { font-size: 14px; color: var(--persian); font-weight: 700; margin-right: 6px; vertical-align: 3px; }
+
+/* 超大暂停/开始按钮 */
+#big-toggle {
+  -webkit-app-region: no-drag; /* 按钮可点，不触发拖动 */
+  display: block;
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 0 0 12px 12px; /* 顶边平，与上方浓缩条贴合成一体 */
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+  color: var(--bistre);
+  transition: transform .12s, background .3s, box-shadow .3s;
+}
+#big-toggle:active { transform: scale(0.97); }
+/* 纵向两行：主行(图标+文案) + 副行(计划进度)。min-height 让三种状态尺寸一致 */
+#big-toggle { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 66px; }
+#big-toggle .bt-main { display: flex; align-items: center; justify-content: center; gap: 8px; }
+#big-toggle .bt-icon { width: 20px; height: 20px; flex: none; }
+/* 长文案（如"目标已失败，请重新设立目标"）也保持一行，自动缩到合适字号 */
+#big-toggle .bt-label { white-space: nowrap; }
+/* 副行：计划进度（按钮内小字，颜色继承按钮深色文字、略淡） */
+#big-toggle .bt-sub {
+  font-size: 11px; font-weight: 600; letter-spacing: 0;
+  opacity: .82; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 暂停态：亮橙"开始"大按钮，邀请你点 */
+#card.paused #big-toggle {
+  background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa));
+  box-shadow: 0 4px 16px rgba(223,111,33,.5);
+  animation: breathe 2s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 4px 16px rgba(223,111,33,.5); }
+  50% { box-shadow: 0 4px 26px rgba(223,111,33,.85); }
+}
+/* 专注态："暂停"按钮用次橙，收敛但仍醒目 */
+#card.running #big-toggle {
+  background: linear-gradient(135deg, var(--persian), var(--persian-deep));
+  color: var(--bistre);
+  box-shadow: 0 4px 16px rgba(211,141,79,.5);
+}
+/* 超额劝退态：按钮整块变成"今天已经可以了"的劝退提示卡，不可点 */
+#big-toggle.over-rest {
+  flex-direction: column;
+  gap: 3px;
+  cursor: default;
+  pointer-events: none;
+  animation: none;
+  background: linear-gradient(135deg, #5a4036, #43302a);
+  color: var(--navajo);
+  box-shadow: none;
+}
+#big-toggle.over-rest .over-main {
+  font-size: 16px; font-weight: 800; letter-spacing: 1px;
+  color: var(--cocoa-soft);
+}
+#big-toggle.over-rest .over-sub {
+  font-size: 11px; font-weight: 500; letter-spacing: 0;
+  color: var(--khaki);
+}
+
+/* ===== 当前小时浓缩时间轴（贴在按钮正上方） ===== */
+#hour-label {
+  text-align: center;
+  font-size: 11px;
+  color: var(--khaki);
+  margin: 8px 0 4px; /* 位于按钮与徽章之间 */
+}
+#hour-label b { color: var(--cocoa); font-weight: 800; }
+#hour-wrap {
+  position: relative;
+  height: 24px;
+  margin: 7px 0 0; /* 上方与大时间留适度间距，下方与按钮贴合 */
+}
+/* 彩色分段条（轨道 + 内容着色，由 JS 设 background）。底边平、与按钮拼成一体 */
+#hour-bar {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 100%;
+  height: 11px;
+  border-radius: 6px 6px 0 0;
+  background: var(--bistre-line);
+}
+/* 旗子覆盖层 */
+#hour-flags {
+  position: absolute;
+  left: 0; right: 0; bottom: 9px;
+  height: 16px;
+  pointer-events: none;
+}
+.flag {
+  position: absolute;
+  bottom: 0;
+  line-height: 0;
+}
+/* 自绘三角小旗：旗杆锚点在左、旗面朝右（left 直接定位旗杆，不再 -50% 居中，避免戳出边缘） */
+.flag svg { display: block; width: 13px; height: 17px; }
+.flag.flag-end { color: var(--flag-red); }
+.flag.flag-pause { color: var(--navajo); }
+
+/* 徽章墙 */
+#badges {
+  display: flex;
+  flex-wrap: nowrap;   /* 14 个徽章始终单行，绝不换两行 */
+  gap: 4px;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+.badge {
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  background: rgba(253,221,170,.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  color: var(--khaki);
+  transition: transform .3s, background .3s;
+}
+.badge.lit {
+  background: radial-gradient(circle at 30% 30%, var(--cocoa-soft), var(--cocoa));
+  color: var(--bistre);
+  box-shadow: 0 0 8px rgba(223,111,33,.7);
+}
+.badge.gold {
+  background: radial-gradient(circle at 30% 30%, #fff3b0, #d4af37);
+  color: #4a2600;
+  box-shadow: 0 0 12px rgba(212,175,55,.9);
+}
+/* 超额福利徽章（超出原定目标、≤14）：鎏金 + 一圈星光发光描边，表示"比计划多努力" */
+.badge.over {
+  background: radial-gradient(circle at 30% 30%, #ffe9a8, #e8b923);
+  color: #4a2600;
+  box-shadow: 0 0 0 1.5px rgba(255,236,150,.95), 0 0 12px 2px rgba(232,185,35,.9);
+}
+.badge.pop { animation: pop .5s; }
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.7); }
+  100% { transform: scale(1); }
+}
+
+/* 一行三信息：本次专注 · 当前内容 · 今日暂停 */
+#liveinfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--khaki);
+}
+#catinfo { text-align: center; }
+#cat-now { font-weight: 700; color: var(--cocoa); }
+#cat-now.video { color: var(--cat-video); }
+#cat-now.client { color: var(--cat-client); }
+#cat-now.other { color: var(--cat-other); }
+
+/* 目标弹层 */
+#goal-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  -webkit-app-region: no-drag; /* 弹层打开时不触发拖窗 */
+}
+#goal-modal.hidden { display: none; }
+.modal-box {
+  background: var(--bistre); padding: 18px; border-radius: 14px;
+  width: 240px; color: var(--navajo);
+  -webkit-app-region: no-drag;
+  border: 1px solid rgba(223,111,33,.25);
+}
+.modal-title { font-size: 13px; margin-bottom: 12px; text-align: center; color: var(--navajo); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.modal-title svg { width: 15px; height: 15px; color: var(--cocoa); }
+.goal-presets { display: flex; gap: 8px; margin-bottom: 10px; }
+.goal-presets button {
+  flex: 1; padding: 8px; border-radius: 8px; border: none;
+  background: rgba(253,221,170,.1); color: var(--navajo); cursor: pointer; font-size: 13px;
+}
+.goal-presets button:hover { background: var(--cocoa); color: var(--bistre); }
+.goal-custom { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 12px; color: var(--khaki); }
+.goal-custom input {
+  flex: 1; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--bistre-line);
+  background: var(--bistre2); color: var(--navajo); font-size: 13px;
+}
+#goal-warn { font-size: 12px; color: var(--cocoa-soft); margin: -6px 0 12px; }
+#goal-warn.hidden { display: none; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-actions button {
+  padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px;
+}
+#goal-cancel { background: rgba(253,221,170,.1); color: var(--navajo); }
+#goal-save { background: var(--cocoa); color: var(--bistre); font-weight: 600; }
+.autostart-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--khaki); margin-bottom: 14px; cursor: pointer;
+}
+.autostart-row input { width: 15px; height: 15px; accent-color: var(--cocoa); }
+.hotkey-row { font-size: 12px; color: var(--khaki); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+.hotkey-row b { color: var(--cocoa); font-weight: 700; }
+#hotkey-edit {
+  margin-left: auto; padding: 3px 10px; border-radius: 6px; border: none;
+  background: rgba(253,221,170,.12); color: var(--navajo); cursor: pointer; font-size: 12px;
+  -webkit-app-region: no-drag;
+}
+#hotkey-edit:hover { background: var(--cocoa); color: var(--bistre); }
+
+/* 撒花 */
+#confetti {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* 全屏达成 */
+#goal-celebrate {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  font-size: 19px; font-weight: 800;
+  color: var(--navajo);
+  background: rgba(40, 24, 10, .9);
+  border-radius: 16px;
+  z-index: 45;
+  text-align: center;
+  padding: 20px;
+  animation: glow 1.5s infinite alternate;
+}
+#goal-celebrate.hidden { display: none; }
+#goal-celebrate svg { width: 44px; height: 44px; color: var(--cocoa); margin-bottom: 12px; }
+@keyframes glow {
+  from { text-shadow: 0 0 8px var(--cocoa); }
+  to { text-shadow: 0 0 22px var(--navajo); }
+}
+
+/* ===== 全屏专注模式：极简巨字（默认隐藏全屏专用元素） ===== */
+#fs-tagline { display: none; }
+#exit-fullscreen { display: none; }
+
+body.fullscreen #card {
+  height: 100vh;
+  padding: 3vmin 4vmin;
+  border-radius: 0;
+  background: var(--bistre);   /* 不透明深色铺满整屏 */
+  align-items: center;          /* 各项水平居中 */
+  justify-content: flex-start;  /* 三段分布靠 order + margin:auto */
+}
+/* 全屏隐藏：拖动栏、小时文字、三信息（徽章/浓缩条/按钮改为显示并重排） */
+body.fullscreen #dragbar,
+body.fullscreen #hour-label,
+body.fullscreen #liveinfo { display: none; }
+
+/* 徽章：顶部一行，随屏放大 */
+body.fullscreen #badges {
+  order: -2;
+  margin: 1vmin 0 0;
+  gap: clamp(6px, 1vmin, 14px);
+}
+body.fullscreen .badge {
+  width: clamp(20px, 2.6vmin, 36px);
+  height: clamp(20px, 2.6vmin, 36px);
+  font-size: clamp(11px, 1.5vmin, 18px);
+}
+
+/* 中间组（时间+文案+圆形按钮）：用上下 margin:auto 夹在屏幕中部 */
+body.fullscreen #center-slot {
+  order: 0;
+  flex: none;
+  width: 100%;
+  height: auto;
+  margin-top: auto;            /* 上方弹性 */
+}
+body.fullscreen .bigtime {
+  position: static;
+  /* vmin 基准：带鱼屏/超宽屏按高度缩放，横向绝不溢出；clamp 上限防超大屏过大 */
+  font-size: clamp(80px, 22vmin, 320px);
+  letter-spacing: 4px;
+}
+body.fullscreen #focus-time { opacity: 1 !important; transform: none !important; position: static; }
+body.fullscreen #rest-time { display: none; }
+
+body.fullscreen #fs-tagline {
+  order: 1;
+  display: block;
+  margin-top: 22px;
+  font-size: clamp(14px, 2.4vmin, 30px);
+  color: var(--khaki);
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+/* 暂停按钮（居中）：信息层级低，做成低调的无边框纯图标——重点留给大数字/徽章/进度条 */
+body.fullscreen #big-toggle {
+  order: 2;
+  width: auto;
+  height: auto;
+  min-height: 0;               /* 全屏纯图标，不要正常态的最小高度 */
+  margin: 2.4vmin 0 auto;      /* 下方弹性 → 中间组整体居中 */
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: transparent !important;
+  border: none;
+  box-shadow: none !important;
+  color: var(--khaki) !important;
+  opacity: .7;
+  animation: none !important;
+}
+body.fullscreen #big-toggle:hover { opacity: 1; color: var(--navajo) !important; background: rgba(253,221,170,.06) !important; }
+body.fullscreen #big-toggle .bt-label { display: none; }  /* 只留 ▶/⏸ 图标 */
+body.fullscreen #big-toggle .bt-icon { width: clamp(26px, 3.4vmin, 44px); height: clamp(26px, 3.4vmin, 44px); }
+
+/* 浓缩条：贴最底边，旗子随屏放大 → "地面上插着一排旗子" */
+body.fullscreen #hour-wrap {
+  order: 3;
+  width: 100%;
+  height: clamp(22px, 4vmin, 52px);
+  margin: 0;
+}
+body.fullscreen #hour-bar { height: clamp(8px, 1.6vmin, 18px); border-radius: 0; }
+body.fullscreen #hour-flags { bottom: clamp(6px, 1.4vmin, 16px); height: clamp(18px, 3vmin, 40px); }
+body.fullscreen .flag svg { width: clamp(14px, 2vmin, 28px); height: clamp(18px, 2.6vmin, 36px); }
+
+body.fullscreen #exit-fullscreen {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; top: 18px; right: 18px;
+  width: 40px; height: 40px;
+  z-index: 60;
+  -webkit-app-region: no-drag;
+}
+body.fullscreen #exit-fullscreen svg { width: 22px; height: 22px; }
+
+/* ===== 弹窗（分神 / 休息 / 退出 / 放弃确认 共用容器） ===== */
+#distract-overlay, #abort-confirm, #exit-overlay, #rest-tip-overlay {
+  -webkit-app-region: no-drag;
+  position: fixed; inset: 0;
+  background: rgba(20,12,8,.72);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 70; padding: 16px;
+}
+#distract-overlay.hidden, #abort-confirm.hidden, #exit-overlay.hidden, #rest-tip-overlay.hidden { display: none; }
+#exit-done.hidden, #exit-undone.hidden { display: none; }
+.dx-box, .ac-box {
+  background: linear-gradient(160deg, #43302a, var(--bistre));
+  border: 1px solid rgba(223,111,33,.4);
+  border-radius: 14px; padding: 18px 18px 14px;
+  width: 100%; max-width: 300px; text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+.dx-title {
+  font-size: 16px; font-weight: 800; color: var(--cocoa-soft);
+  display: flex; align-items: center; justify-content: center; gap: 7px; margin-bottom: 8px;
+}
+.dx-title svg { width: 18px; height: 18px; }
+.dx-desc { font-size: 12px; color: var(--navajo); line-height: 1.6; margin-bottom: 14px; }
+.dx-desc b { color: var(--cocoa); }
+.dx-actions, .ac-actions { display: flex; gap: 8px; }
+.dx-actions button, .ac-actions button {
+  flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700;
+}
+#dx-keep, #ac-keep, .dx-actions button.sec { background: rgba(253,221,170,.12); color: var(--navajo); }
+#dx-keep:hover, #ac-keep:hover, .dx-actions button.sec:hover { background: rgba(253,221,170,.22); }
+#dx-pause, #ac-stop, .dx-actions button.pri { background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa)); color: var(--bistre); }
+.dx-remind {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 11px; color: var(--khaki); margin-top: 12px; cursor: pointer;
+}
+.dx-remind input { width: 14px; height: 14px; accent-color: var(--cocoa); }
+
+/* ===== 终止确认 ===== */
+.ac-title { font-size: 16px; font-weight: 800; color: var(--navajo); margin-bottom: 8px; }
+.ac-desc { font-size: 12px; color: var(--khaki); line-height: 1.6; margin-bottom: 14px; }
+
+/* ===== 收工/终止/计划完成 仪式总结 ===== */
+#ceremony {
+  -webkit-app-region: no-drag;
+  position: fixed; inset: 0;
+  background: rgba(20,12,8,.92);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 75; padding: 18px;
+}
+#ceremony.hidden { display: none; }
+.ce-card {
+  text-align: center; max-width: 320px; width: 100%;
+  animation: glow 1.8s infinite alternate;
+}
+.ce-emoji { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.ce-title { font-size: 21px; font-weight: 800; color: var(--navajo); margin-bottom: 4px; }
+.ce-sub { font-size: 12px; color: var(--khaki); margin-bottom: 14px; }
+.ce-stats { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.ce-stats .ce-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; padding: 8px 12px; border-radius: 8px;
+  background: rgba(253,221,170,.06);
+}
+.ce-stats .ce-row .k { color: var(--khaki); }
+.ce-stats .ce-row .v { color: var(--navajo); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ce-stats .ce-row .v.gold { color: #f0c850; }
+.ce-reward { font-size: 13px; color: #f0c850; font-weight: 700; margin-bottom: 16px; min-height: 1em; }
+#ce-close {
+  padding: 10px 28px; border-radius: 9px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa));
+  color: var(--bistre); font-weight: 800; font-size: 14px;
+}
+#ce-close:hover { filter: brightness(1.05); }

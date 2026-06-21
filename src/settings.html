@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>溯迹 · 设置</title>
+  <style>
+    :root {
+      --bistre: #37241F; --bistre2: #2a1b16; --bistre-line: #4a342b;
+      --cocoa: #DF6F21; --cocoa-soft: #f0a25a; --persian: #D38D4F;
+      --navajo: #FDDDAA; --khaki: #C2A489;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, var(--bistre), var(--bistre2));
+      color: var(--navajo); padding: 20px 22px; min-height: 100vh;
+      -webkit-user-select: none; user-select: none;
+    }
+    h1 { font-size: 18px; margin-bottom: 18px; color: var(--navajo); font-weight: 800; }
+    h1 .brand { color: var(--cocoa); letter-spacing: 2px; }
+
+    .section { margin-bottom: 20px; }
+    .sec-title { font-size: 13px; color: var(--khaki); margin-bottom: 10px; }
+
+    .presets { display: flex; gap: 8px; margin-bottom: 10px; }
+    .presets button {
+      flex: 1; padding: 9px; border-radius: 8px; border: none;
+      background: rgba(253,221,170,.1); color: var(--navajo); cursor: pointer; font-size: 13px;
+    }
+    .presets button:hover { background: var(--cocoa); color: var(--bistre); }
+
+    .custom { display: flex; align-items: center; gap: 8px; }
+    .custom input {
+      flex: 1; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--bistre-line);
+      background: var(--bistre2); color: var(--navajo); font-size: 13px;
+    }
+    .custom > span { font-size: 12px; color: var(--khaki); }
+    #goal-save { padding: 7px 16px; border-radius: 8px; border: none; background: var(--cocoa); color: var(--bistre); font-weight: 700; cursor: pointer; font-size: 13px; }
+    #goal-save:hover { background: var(--cocoa-soft); }
+
+    #goal-warn { font-size: 12px; color: var(--cocoa-soft); margin-top: 10px; }
+    #goal-warn.hidden { display: none; }
+
+    .row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--navajo); cursor: pointer; }
+    .row input { width: 16px; height: 16px; accent-color: var(--cocoa); }
+
+    .hotkey-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--khaki); white-space: nowrap; }
+    .hk-label { flex: none; }
+    #hotkey-display { color: var(--cocoa); font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    #hotkey-edit {
+      flex: none; padding: 5px 14px; border-radius: 7px; border: none;
+      background: rgba(253,221,170,.12); color: var(--navajo); cursor: pointer; font-size: 12px;
+    }
+    #hotkey-edit:hover { background: var(--cocoa); color: var(--bistre); }
+    .hint { font-size: 12px; color: var(--khaki); margin-top: 8px; opacity: .8; white-space: nowrap; }
+
+    /* 清除记录：小号描边按钮，挨在「保存」旁 */
+    #clear-today {
+      flex: none; padding: 7px 12px; border-radius: 8px; white-space: nowrap;
+      border: 1px solid var(--bistre-line); background: transparent;
+      color: var(--khaki); cursor: pointer; font-size: 13px;
+    }
+    #clear-today:hover { border-color: var(--cocoa); color: var(--cocoa-soft); }
+    #clear-today.armed { border-color: #cc3b2e; color: #e8896f; }
+
+    /* 分神提醒：一行说清 */
+    .idle-line { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--navajo); white-space: nowrap; }
+    .idle-line input[type=number] { width: 52px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--bistre-line); background: var(--bistre2); color: var(--navajo); font-size: 13px; }
+    .idle-line input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--cocoa); }
+    .idle-line .muted { color: var(--khaki); }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-9px); }
+      30% { transform: translateX(9px); }
+      45% { transform: translateX(-7px); }
+      60% { transform: translateX(7px); }
+      75% { transform: translateX(-4px); }
+      90% { transform: translateX(4px); }
+    }
+    body.shake { animation: shake .42s ease; }
+  </style>
+</head>
+<body>
+  <h1><span class="brand">溯迹</span> · 设置</h1>
+
+  <div class="section">
+    <div class="sec-title">今天的目标时长</div>
+    <div class="presets">
+      <button data-h="12">12 小时</button>
+      <button data-h="14">14 小时</button>
+    </div>
+    <div class="custom">
+      <input id="goal-input" type="number" min="1" max="14" step="0.5" placeholder="自定义" />
+      <span>小时</span>
+      <button id="goal-save">保存</button>
+      <button id="clear-today">清除记录</button>
+    </div>
+    <div id="goal-warn" class="hidden">目标最多 14 小时，已自动帮你调整～</div>
+    <div class="hint">「清除记录」会先归档（复盘可查）再从 0 重计。</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">启动</div>
+    <label class="row"><input type="checkbox" id="autostart" /> 开机自动启动</label>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">快捷键</div>
+    <div class="hotkey-row">
+      <span class="hk-label">暂停 / 继续</span>
+      <b id="hotkey-display">—</b>
+      <button id="hotkey-edit">修改</button>
+    </div>
+    <div class="hint">点「修改」后直接按下想要的组合键（需含 Ctrl / Alt / Shift，Esc 取消）</div>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">分神提醒</div>
+    <div class="idle-line">
+      <input type="checkbox" id="idle-enabled" />
+      <span>鼠键超过</span>
+      <input id="idle-minutes" type="number" min="1" max="60" step="1" />
+      <span class="muted">分钟没动就提醒（看视频自动豁免）</span>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>今日复盘</title>
+  <style>
+    :root {
+      --bistre: #37241F; --bistre2: #2a1b16; --bistre-line: #4a342b;
+      --cocoa: #DF6F21; --cocoa-soft: #f0a25a; --persian: #D38D4F; --navajo: #FDDDAA; --khaki: #C2A489;
+      --cards-h: 110px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, var(--bistre), var(--bistre2));
+      color: var(--navajo); min-height: 100vh;
+    }
+    .page-head { padding: 20px 24px 10px; }
+    h1 { font-size: 20px; margin-bottom: 4px; color: var(--navajo); }
+    h1 .brand { color: var(--cocoa); }
+    .date { color: var(--khaki); font-size: 13px; }
+    #plan-info b { color: var(--cocoa); }
+    #plan-info .reward { color: #f0c850; }
+
+    /* 看板：永远吸顶 */
+    .cards {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--bistre);
+      padding: 12px 24px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      border-bottom: 1px solid rgba(223,111,33,.18);
+    }
+    .stat { background: var(--bistre2); border-radius: 12px; padding: 12px 14px; border: 1px solid rgba(223,111,33,.18); }
+    .stat .num { font-size: 22px; font-weight: 700; color: var(--navajo); }
+    .stat .lbl { font-size: 12px; color: var(--khaki); margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+    .stat .lbl svg { width: 13px; height: 13px; }
+    .medal { width: 14px; height: 14px; vertical-align: -2px; color: #f0c850; }
+    .stat.highlight { background: linear-gradient(135deg, #4a2f16, #3a2412); border-color: rgba(212,175,55,.4); }
+    .stat.highlight .num { color: #f0c850; }
+
+    /* 左标签栏 + 右内容 */
+    .layout { display: flex; gap: 18px; align-items: flex-start; padding: 16px 24px 40px; }
+    .tabs { position: sticky; top: calc(var(--cards-h) + 12px); width: 118px; flex: none; display: flex; flex-direction: column; gap: 4px; }
+    .tabs a { padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--khaki); cursor: pointer; border-left: 2px solid transparent; white-space: nowrap; }
+    .tabs a:hover { background: rgba(253,221,170,.06); color: var(--navajo); }
+    .tabs a.active { background: rgba(223,111,33,.14); color: var(--cocoa-soft); border-left-color: var(--cocoa); }
+    .content { flex: 1; min-width: 0; }
+    section { scroll-margin-top: calc(var(--cards-h) + 18px); margin-bottom: 28px; }
+    h2 { font-size: 15px; margin: 0 0 10px; color: var(--persian); }
+
+    /* 每小时产出折线图 */
+    #hour-chart { width: 100%; }
+    #hour-chart svg { width: 100%; height: auto; display: block; }
+    .hc-line { fill: none; stroke: var(--cocoa); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+    .hc-area { fill: rgba(223,111,33,.12); stroke: none; }
+    .hc-dot { fill: var(--navajo); stroke: var(--cocoa); stroke-width: 1.5; }
+    .hc-grid { stroke: var(--bistre-line); stroke-width: 1; }
+    .hc-axis { fill: var(--khaki); font-size: 11px; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(253,221,170,.08); }
+    th { color: var(--khaki); font-weight: 500; }
+    td { color: var(--navajo); }
+    td.dur { font-variant-numeric: tabular-nums; }
+    .empty { color: var(--khaki); padding: 20px 0; text-align: center; }
+
+    /* 内容分类（可展开） */
+    .cat-row { margin-bottom: 12px; }
+    .cat-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; align-items: center; }
+    .cat-name { color: var(--navajo); display: flex; align-items: center; gap: 4px; }
+    .cat-name .chev { color: var(--khaki); font-size: 11px; width: 12px; display: inline-block; }
+    .cat-val { color: var(--khaki); font-variant-numeric: tabular-nums; }
+    .cat-track { height: 14px; background: var(--bistre-line); border-radius: 7px; overflow: hidden; }
+    .cat-track.sm { height: 9px; border-radius: 5px; }
+    .cat-fill { height: 100%; display: flex; overflow: hidden; transition: width .4s; }
+    .cat-fill .seg { height: 100%; }
+    .cat-apps { margin: 8px 0 4px 16px; padding-left: 10px; border-left: 1px solid rgba(253,221,170,.1); }
+    .app-row { margin-bottom: 8px; }
+    .app-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--khaki); margin-bottom: 3px; }
+    .app-head span:first-child { color: var(--navajo); }
+
+    /* 归档 */
+    .arch-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 10px; border-bottom: 1px solid rgba(253,221,170,.08); font-size: 13px; }
+    .arch-idx { color: var(--khaki); }
+    .arch-dur { color: var(--cocoa); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .arch-time { color: var(--khaki); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div class="page-head">
+    <h1><span class="brand">溯迹</span> · 今日复盘</h1>
+    <div class="date" id="date"></div>
+    <div class="date" id="plan-info" style="display:none"></div>
+  </div>
+
+  <div class="cards" id="cards">
+    <div class="stat"><div class="num" id="total"></div><div class="lbl"><i data-lucide="trending-up"></i>专注总时长</div></div>
+    <div class="stat"><div class="num" id="goal"></div><div class="lbl"><i data-lucide="target"></i>目标完成度</div></div>
+    <div class="stat highlight"><div class="num" id="streak"></div><div class="lbl"><i data-lucide="flame"></i>最长连续专注</div></div>
+    <div class="stat"><div class="num" id="pauses"></div><div class="lbl"><i data-lucide="pause"></i>分心暂停次数</div></div>
+  </div>
+
+  <div class="layout">
+    <nav class="tabs" id="tabs">
+      <a data-target="sec-timeline">每小时产出</a>
+      <a data-target="sec-cat">内容分类</a>
+      <a data-target="sec-sessions">专注明细</a>
+      <a data-target="sec-arch" id="tab-arch" style="display:none">归档记录</a>
+    </nav>
+    <div class="content">
+      <section id="sec-timeline">
+        <h2>每小时产出（纵轴=该小时专注分钟，最高 60）</h2>
+        <div id="hour-chart"></div>
+      </section>
+
+      <section id="sec-cat">
+        <h2>内容分类（点大类可展开看各应用）</h2>
+        <div id="cat-breakdown"></div>
+      </section>
+
+      <section id="sec-sessions">
+        <h2>每段专注明细</h2>
+        <table>
+          <thead><tr><th>#</th><th>开始</th><th>结束</th><th>时长</th></tr></thead>
+          <tbody id="session-rows"></tbody>
+        </table>
+      </section>
+
+      <section id="sec-arch" style="display:none">
+        <h2>今日早先的记录（已清除归档）</h2>
+        <div id="archives"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="lucide.min.js"></script>
+  <script src="stats.js"></script>
+</body>
+</html>

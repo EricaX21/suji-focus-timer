@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 溯迹 · 专注态「睁眼」图标。运行时定义在 src/timer.js 的 EYE_OPEN。
+     与 eye-closed 共用 viewBox 0 0 120 90 和同一条下弧线（M15,39 c30,20,60,20,90,0），切换时产生眨眼感。
+     运行时 stroke 为 currentColor（跟主题换色）；这里临时填品牌橙 #DF6F21 仅供预览。 -->
+<svg width="240" height="180" viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"
+     fill="none" stroke="#DF6F21" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 下眼睑（公共下弧线，不动支点） -->
+  <path d="M15 39 c30 20 60 20 90 0"/>
+  <!-- 上眼睑（抬起） -->
+  <path d="M15 39 c30 -20 60 -20 90 0"/>
+  <!-- 虹膜环 -->
+  <circle cx="60" cy="39" r="12.75" stroke-width="6"/>
+  <!-- 瞳孔（实心） -->
+  <circle cx="60" cy="39" r="5" fill="#DF6F21" stroke="none"/>
+  <!-- 三根朝上睫毛 -->
+  <path d="M37.5 26.25 l-6 -15"/>
+  <path d="M60 22.5 V6.75"/>
+  <path d="M82.5 26.25 l6 -15"/>
+</svg>
