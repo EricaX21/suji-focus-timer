@@ -285,6 +285,59 @@ function toggleFullscreen() {
   timerWin.webContents.send('fullscreen-changed', isFull);
 }
 
+// ---------- 外部全屏检测（看视频/游戏全屏时，悬浮窗自动变迷你数字或隐藏） ----------
+let externalFull = false;     // 当前是否处于"别的应用全屏"
+let prevMiniBounds = null;    // 进入迷你态前的悬浮窗位置/尺寸，退出时还原
+function fullscreenMode() {
+  const m = loadSettings().fullscreenMode;
+  return m === 'hide' ? 'hide' : 'mini'; // 默认 mini
+}
+async function checkExternalFullscreen() {
+  if (!timerWin || timerWin.isDestroyed() || isFull) return; // 自身全屏专注时不处理
+  let isExt = false;
+  try {
+    const fn = await getActiveWindowFn();
+    const w = await fn();
+    if (w && w.bounds) {
+      const ownerPath = ((w.owner && (w.owner.path || w.owner.name)) || '').toLowerCase();
+      const isOurs = ownerPath.includes('study-timer') || ownerPath.includes('溯迹') || ownerPath.includes('electron');
+      if (!isOurs && (w.title || '').length >= 0) {
+        const disp = screen.getDisplayMatching(w.bounds);
+        const b = disp.bounds;
+        const near = (a, c) => Math.abs(a - c) <= 2;
+        if (near(w.bounds.x, b.x) && near(w.bounds.y, b.y) && near(w.bounds.width, b.width) && near(w.bounds.height, b.height)) {
+          isExt = true; // 前台窗口铺满整块屏幕（含任务栏区）→ 判为外部全屏
+        }
+      }
+    }
+  } catch (e) { return; }
+
+  if (isExt === externalFull) return; // 状态没变，不重复处理
+  externalFull = isExt;
+  const mode = fullscreenMode();
+  if (isExt) {
+    if (mode === 'hide') {
+      timerWin.hide();
+    } else {
+      prevMiniBounds = timerWin.getBounds();
+      const disp = screen.getDisplayMatching(timerWin.getBounds());
+      const mw = 150, mh = 40;
+      timerWin.setMinimumSize(60, 24);
+      timerWin.setBounds({ x: Math.round(disp.bounds.x + (disp.bounds.width - mw) / 2), y: disp.bounds.y + 2, width: mw, height: mh });
+      timerWin.webContents.send('external-fullscreen-changed', { active: true, mode: 'mini' });
+      if (!timerWin.isVisible()) timerWin.show();
+    }
+  } else {
+    if (mode === 'hide') {
+      if (!timerWin.isVisible()) timerWin.show();
+    } else {
+      timerWin.webContents.send('external-fullscreen-changed', { active: false, mode: 'mini' });
+      timerWin.setMinimumSize(360, 240);
+      if (prevMiniBounds) timerWin.setBounds(prevMiniBounds);
+    }
+  }
+}
+
 function createStatsWindow() {
   if (statsWin && !statsWin.isDestroyed()) {
     statsWin.focus();
@@ -331,7 +384,7 @@ function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
     width: 480,
-    height: 560,
+    height: 620,
     title: '溯迹 · 设置',
     icon: path.join(__dirname, 'icon.ico'),
     resizable: false,
@@ -392,6 +445,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null); // 去掉默认英文菜单栏（File/Edit/View…），统计窗口不再显示
   createTimerWindow();
   setupHotkey();
+  setInterval(checkExternalFullscreen, 3000); // 外部全屏检测（迷你数字/隐藏）
 
   // 启动判定：进行中的多天计划 → 继续接续今天（即便昨天有缺额也不再硬失败，
   //   缺额由悬浮窗温柔提示并可补救）；仅当计划周期整个走完仍未完成 / 无目标 / oneShot 过期 → 弹设定窗
@@ -647,6 +701,23 @@ ipcMain.on('flash-attention', () => {
   if (!timerWin.isVisible()) timerWin.show();
   try { timerWin.flashFrame(true); } catch (e) { /* 忽略 */ }
   try { timerWin.moveTop(); } catch (e) { /* 忽略 */ }
+});
+
+// 全屏看视频时的表现：mini（顶部迷你数字）/ hide（完全隐藏）
+ipcMain.handle('get-fs-mode', () => ({ fullscreenMode: fullscreenMode() }));
+ipcMain.handle('set-fs-mode', (e, v) => {
+  v = v || {};
+  const s = loadSettings();
+  if (v.fullscreenMode === 'hide' || v.fullscreenMode === 'mini') s.fullscreenMode = v.fullscreenMode;
+  saveSettings(s);
+  // 若切到 hide 而当前正处于 mini 迷你态，先把迷你态收掉，避免残留窄条
+  if (s.fullscreenMode === 'hide' && externalFull && timerWin && !timerWin.isDestroyed()) {
+    timerWin.webContents.send('external-fullscreen-changed', { active: false, mode: 'mini' });
+    timerWin.setMinimumSize(360, 240);
+    if (prevMiniBounds) timerWin.setBounds(prevMiniBounds);
+    timerWin.hide();
+  }
+  return true;
 });
 
 // 作息：熬夜党模式（存 settings.json）。改动后通知悬浮窗在暂停态下重载今天数据。

@@ -463,6 +463,29 @@ body.fullscreen #exit-fullscreen {
 }
 body.fullscreen #exit-fullscreen svg { width: 22px; height: 22px; }
 
+/* ===== 外部全屏迷你态：看视频/游戏全屏时，只在顶部留一个专注时长数字 ===== */
+body.mini #card {
+  height: 100vh;
+  padding: 3px 12px;
+  border-radius: 9px;
+  background: rgba(55,36,31,.92);   /* 半透明深色小药丸 */
+  align-items: center;
+  justify-content: center;
+}
+body.mini #dragbar,
+body.mini #hour-wrap,
+body.mini #big-toggle,
+body.mini #hour-label,
+body.mini #badges,
+body.mini #liveinfo,
+body.mini #rest-time,
+body.mini #fs-tagline,
+body.mini #exit-fullscreen,
+body.mini #mini-focus { display: none; }
+body.mini #center-slot { flex: none; margin: 0; min-height: 0; width: 100%; }
+body.mini .bigtime { position: static; font-size: 24px; letter-spacing: 1px; }
+body.mini #focus-time { opacity: 1 !important; position: static; color: var(--navajo); }
+
 /* ===== 弹窗（分神 / 休息 / 退出 / 放弃确认 共用容器） ===== */
 #distract-overlay, #abort-confirm, #exit-overlay, #rest-tip-overlay, #shortfall-overlay {
   -webkit-app-region: no-drag;

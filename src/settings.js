@@ -146,6 +146,15 @@ async function init() {
   document.getElementById('night-owl').addEventListener('change', (e) =>
     window.api.setDaySettings({ nightOwl: e.target.checked }));
 
+  // 全屏看视频时：迷你数字 / 完全隐藏
+  try {
+    const fs = await window.api.getFsMode();
+    const mode = (fs && fs.fullscreenMode) === 'hide' ? 'hide' : 'mini';
+    document.getElementById(mode === 'hide' ? 'fs-hide' : 'fs-mini').checked = true;
+  } catch (e) { /* 忽略 */ }
+  document.getElementById('fs-mini').addEventListener('change', (e) => { if (e.target.checked) window.api.setFsMode({ fullscreenMode: 'mini' }); });
+  document.getElementById('fs-hide').addEventListener('change', (e) => { if (e.target.checked) window.api.setFsMode({ fullscreenMode: 'hide' }); });
+
   // 清除今日记录（二次确认；旧记录归档不丢，复盘可查）
   const clearBtn = document.getElementById('clear-today');
   let clearArmed = false;

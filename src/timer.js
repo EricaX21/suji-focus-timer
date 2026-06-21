@@ -454,6 +454,8 @@ function setTimeVisibility() {
   const mini = document.getElementById('mini-focus');
   if (!focus || !mini) return;
   focus.style.transform = '';
+  // 外部全屏迷你态：只显示中央专注时长数字（位置由 CSS body.mini 控制）
+  if (document.body.classList.contains('mini')) { focus.style.opacity = '1'; mini.style.opacity = '0'; return; }
   if (document.body.classList.contains('fullscreen')) { focus.style.opacity = '1'; mini.style.opacity = '0'; return; }
   if (running) { focus.style.opacity = '1'; mini.style.opacity = '0'; }          // 专注：中央大字
   else if (restStartEpoch) { focus.style.opacity = '0'; mini.style.opacity = '1'; } // 休息：顶部小字 + 中央休息计时
@@ -733,6 +735,13 @@ function bindEvents() {
   });
   // 用户手动拉伸过窗口 → 之后尊重用户尺寸，不再自动按内容改高
   window.api.onUserResized(() => { userResized = true; });
+
+  // 外部全屏（看视频/游戏）：mini 态只留顶部一个专注时长数字；退出还原
+  window.api.onExternalFullscreen((info) => {
+    const mini = !!(info && info.active && info.mode === 'mini');
+    document.body.classList.toggle('mini', mini);
+    setTimeVisibility();
+  });
 
   // 全局快捷键
   window.api.onGlobalToggle(() => primaryAction());

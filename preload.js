@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('api', {
   // 全屏切换 + 状态回调
   toggleFullscreen: () => ipcRenderer.send('toggle-fullscreen'),
   onFullscreenChanged: (cb) => ipcRenderer.on('fullscreen-changed', (e, isFull) => cb(isFull)),
+  // 外部全屏（看视频/游戏）：迷你数字 / 隐藏
+  getFsMode: () => ipcRenderer.invoke('get-fs-mode'),
+  setFsMode: (v) => ipcRenderer.invoke('set-fs-mode', v),
+  onExternalFullscreen: (cb) => ipcRenderer.on('external-fullscreen-changed', (e, info) => cb(info)),
   // 用户手动拉伸窗口的通知（之后不再自动按内容改高）
   onUserResized: (cb) => ipcRenderer.on('user-resized', cb),
   // 全局快捷键触发的暂停/继续
