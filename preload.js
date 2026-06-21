@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('api', {
   getActiveWindow: () => ipcRenderer.invoke('active-window'),
   openStats: () => ipcRenderer.send('open-stats'),
   openSettings: () => ipcRenderer.send('open-settings'),
+  // 今日总结独立窗口：悬浮窗算好 payload 交给主进程开新窗展示
+  openSummary: (payload) => ipcRenderer.send('open-summary', payload),
+  loadSummary: () => ipcRenderer.invoke('load-summary'),
+  closeSummary: (thenQuit) => ipcRenderer.send('close-summary', thenQuit),
   setGoal: (h) => ipcRenderer.invoke('set-goal', h),
   onGoalUpdated: (cb) => ipcRenderer.on('goal-updated', (e, h) => cb(h)),
   clearToday: () => ipcRenderer.invoke('clear-today'),

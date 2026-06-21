@@ -47,6 +47,8 @@ let timerWin = null;
 let statsWin = null;
 let settingsWin = null;
 let onboardWin = null;
+let summaryWin = null;
+let pendingSummary = null; // 待展示的今日总结数据（由悬浮窗算好、新窗加载时取走）
 let activeHotkey = null; // 实际注册成功的全局快捷键
 
 // get-windows 是 ESM，CommonJS 里用动态 import 调用并缓存
@@ -245,6 +247,27 @@ function createStatsWindow() {
   statsWin.on('closed', () => { statsWin = null; });
 }
 
+// 今日总结：独立窗口（不再挤在悬浮窗里）。数据由悬浮窗经 open-summary 传来。
+function createSummaryWindow() {
+  if (summaryWin && !summaryWin.isDestroyed()) { summaryWin.focus(); return; }
+  summaryWin = new BrowserWindow({
+    width: 380,
+    height: 580,
+    title: '溯迹 · 今日总结',
+    icon: path.join(__dirname, 'icon.ico'),
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  summaryWin.loadFile(path.join(__dirname, 'src', 'summary.html'));
+  summaryWin.on('closed', () => { summaryWin = null; });
+}
+
 // 设置：独立窗口（不再是悬浮窗内的蒙版弹层），不受悬浮窗尺寸限制
 function createSettingsWindow() {
   if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.focus(); return; }
@@ -375,6 +398,15 @@ ipcMain.on('open-stats', () => createStatsWindow());
 ipcMain.on('open-settings', () => createSettingsWindow());
 ipcMain.on('open-onboard', () => createOnboardWindow());
 ipcMain.on('quit-app', () => app.quit());
+
+// 今日总结独立窗口：悬浮窗算好 payload → 暂存 → 开窗；新窗加载时取走
+ipcMain.on('open-summary', (e, payload) => { pendingSummary = payload || null; createSummaryWindow(); });
+ipcMain.handle('load-summary', () => pendingSummary);
+// 总结窗关闭：退出场景直接退应用（数据悬浮窗已先结算保存）；庆祝场景仅关窗
+ipcMain.on('close-summary', (e, thenQuit) => {
+  if (thenQuit) { app.quit(); return; }
+  if (summaryWin && !summaryWin.isDestroyed()) summaryWin.close();
+});
 
 // 设置窗修改目标时长：写入当天数据并通知悬浮窗即时更新（打开设置时悬浮窗已暂停，文件是最新的）
 ipcMain.handle('set-goal', (e, h) => {

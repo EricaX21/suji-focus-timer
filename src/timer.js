@@ -281,8 +281,8 @@ function topTask() {
   return best ? `${best}（${fmtDur(bestMs)}）` : '—';
 }
 
-// 渲染仪式总结卡。mode: 'done'(收工) | 'abort'(终止) | 'plan'(计划完成)
-function showCeremony(mode) {
+// 算出今日总结数据。mode: 'done'(收工) | 'abort'(终止) | 'plan'(计划完成)
+function buildSummaryPayload(mode) {
   const total = liveTotalMs();
   const goalPct = Math.min(100, Math.round(total / (data.goalHours * HOUR_MS) * 100));
   const litBadges = Math.min(MAX_HOURS, Math.floor(total / HOUR_MS));
@@ -295,10 +295,6 @@ function showCeremony(mode) {
     plan: '你完成了整个计划，这份坚持值得奖励 🎉'
   }[mode] || '';
 
-  document.getElementById('ce-emoji').textContent = emoji;
-  document.getElementById('ce-title').textContent = title;
-  document.getElementById('ce-sub').textContent = sub;
-
   const rows = [];
   rows.push(['专注总时长', fmtDur(total), false]);
   rows.push(['目标完成度', `${goalPct}%`, goalPct >= 100]);
@@ -309,23 +305,28 @@ function showCeremony(mode) {
     const dayTxt = `第 ${Math.min(planState.dayIndex, planState.totalDays)}/${planState.totalDays} 天 · 连续 ${planState.currentStreak} 天`;
     rows.push(['计划进度', dayTxt, false]);
   }
-  document.getElementById('ce-stats').innerHTML = rows.map(([k, v, gold]) =>
-    `<div class="ce-row"><span class="k">${k}</span><span class="v${gold ? ' gold' : ''}">${escapeHtml(v)}</span></div>`
-  ).join('');
 
-  const rewardEl = document.getElementById('ce-reward');
+  let reward = '';
   if (planState && planState.reward) {
     const reached = mode === 'plan' || goalPct >= 100;
-    rewardEl.textContent = reached ? `🎁 兑现奖励：${planState.reward}` : `🎁 目标达成可得：${planState.reward}`;
-  } else { rewardEl.textContent = ''; }
+    reward = reached ? `🎁 兑现奖励：${planState.reward}` : `🎁 目标达成可得：${planState.reward}`;
+  }
 
   // 关闭按钮文案：退出场景→「退出应用」，计划庆祝→「好的」
-  document.getElementById('ce-close').textContent = ceremonyThenQuit ? '退出应用' : '好的';
-  document.getElementById('ceremony').classList.remove('hidden');
-  fireConfetti(mode === 'plan' ? 240 : 140);
-  if (mode === 'plan') playDing(true);
+  return { mode, emoji, title, sub, rows, reward, closeLabel: ceremonyThenQuit ? '退出应用' : '好的', thenQuit: ceremonyThenQuit };
 }
-function hideCeremony() { document.getElementById('ceremony').classList.add('hidden'); }
+
+// 今日总结改为独立窗口展示（不再挤在悬浮窗里）。
+// 退出场景：先结算+保存，再开窗——窗内点「退出应用」即退（数据已落盘）。
+function showCeremony(mode) {
+  const payload = buildSummaryPayload(mode);
+  if (ceremonyThenQuit) {
+    commitElapsed();
+    save().then(() => window.api.openSummary(payload)).catch(() => window.api.openSummary(payload));
+  } else {
+    window.api.openSummary(payload);
+  }
+}
 
 // 计划完成大庆祝（首次达成整个多天计划时触发）——关闭只收起、悬浮窗留着
 function celebratePlan(res) {
@@ -625,11 +626,7 @@ function bindEvents() {
   document.getElementById('ac-keep').addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('abort-confirm').classList.add('hidden'); });
   document.getElementById('ac-stop').addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('abort-confirm').classList.add('hidden'); quitNow(); });
 
-  // 仪式总结：关闭——退出场景则退出应用，计划庆祝场景仅关闭
-  document.getElementById('ce-close').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (ceremonyThenQuit) quitNow(); else hideCeremony();
-  });
+  // 仪式总结已独立成窗（src/summary.html），关闭/退出逻辑在 summary.js + 主进程 close-summary 里处理。
 
   // 分神弹窗
   document.getElementById('dx-keep').addEventListener('click', (e) => { e.stopPropagation(); hideDistract(); });

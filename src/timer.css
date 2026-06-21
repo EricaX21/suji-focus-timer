@@ -106,7 +106,7 @@ html, body {
   position: relative;
   flex: 1 1 auto;     /* 拉高窗口时中部弹性占据多余空间，时间保持垂直居中 */
   min-height: 46px;
-  margin: 11px 0 4px; /* 上间距=下间距(4)+浓缩条上边距(7)=11，数字在"顶部行↔浓缩条"之间对称居中（只动上边距，不动下边距） */
+  margin: 12px 0 10px; /* 下边距加大：为浓缩条上方的暂停旗子让出安全间距，最小窗口下大数字也不会压到旗子 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -207,7 +207,7 @@ html, body {
 #hour-wrap {
   position: relative;
   height: 24px;
-  margin: 7px 0 0; /* 上方与大时间留适度间距，下方与按钮贴合 */
+  margin: 10px 0 0; /* 上方留出旗子空间（旗顶不戳进中央数字区），下方与按钮贴合 */
 }
 /* 彩色分段条（轨道 + 内容着色，由 JS 设 background）。底边平、与按钮拼成一体 */
 #hour-bar {
@@ -505,35 +505,4 @@ body.fullscreen #exit-fullscreen svg { width: 22px; height: 22px; }
 .ac-title { font-size: 16px; font-weight: 800; color: var(--navajo); margin-bottom: 8px; }
 .ac-desc { font-size: 12px; color: var(--khaki); line-height: 1.6; margin-bottom: 14px; }
 
-/* ===== 收工/终止/计划完成 仪式总结 ===== */
-#ceremony {
-  -webkit-app-region: no-drag;
-  position: fixed; inset: 0;
-  background: rgba(20,12,8,.92);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 75; padding: 18px;
-}
-#ceremony.hidden { display: none; }
-.ce-card {
-  text-align: center; max-width: 320px; width: 100%;
-  animation: glow 1.8s infinite alternate;
-}
-.ce-emoji { font-size: 44px; line-height: 1; margin-bottom: 8px; }
-.ce-title { font-size: 21px; font-weight: 800; color: var(--navajo); margin-bottom: 4px; }
-.ce-sub { font-size: 12px; color: var(--khaki); margin-bottom: 14px; }
-.ce-stats { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-.ce-stats .ce-row {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 13px; padding: 8px 12px; border-radius: 8px;
-  background: rgba(253,221,170,.06);
-}
-.ce-stats .ce-row .k { color: var(--khaki); }
-.ce-stats .ce-row .v { color: var(--navajo); font-weight: 700; font-variant-numeric: tabular-nums; }
-.ce-stats .ce-row .v.gold { color: #f0c850; }
-.ce-reward { font-size: 13px; color: #f0c850; font-weight: 700; margin-bottom: 16px; min-height: 1em; }
-#ce-close {
-  padding: 10px 28px; border-radius: 9px; border: none; cursor: pointer;
-  background: linear-gradient(135deg, var(--cocoa-soft), var(--cocoa));
-  color: var(--bistre); font-weight: 800; font-size: 14px;
-}
-#ce-close:hover { filter: brightness(1.05); }
+/* ===== 收工/终止/计划完成 仪式总结：已独立成窗（src/summary.html），原悬浮窗内浮层样式移除 ===== */
