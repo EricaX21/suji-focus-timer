@@ -54,6 +54,8 @@ html, body {
   white-space: nowrap; /* 溯迹 / 已暂停 等始终一行排开，不竖排换行 */
 }
 #dragbar > span { flex: none; }
+/* 品牌行：溯迹 + 眼睛 + 状态文字（普通模式保持原 8px 间距；简约模式整组与工具按钮叠放切换） */
+#brandline { display: inline-flex; align-items: center; gap: 8px; }
 #appname {
   font-weight: 800;
   font-size: 12px;
@@ -92,12 +94,12 @@ html, body {
 }
 .tool {
   -webkit-app-region: no-drag;
-  background: rgba(253,221,170,.10);
+  background: transparent; /* 去掉方块底：小图标不再套框，更清爽 */
   border: none; color: var(--navajo); cursor: pointer;
   width: 22px; height: 22px; border-radius: 6px;
   font-size: 12px; line-height: 1;
 }
-.tool:hover { background: rgba(223,111,33,.40); }
+.tool:hover { background: transparent; color: var(--cocoa); } /* hover 改为图标变橙 */
 /* 工具栏 Lucide 图标：描边色继承按钮文字色（navajo），尺寸用 CSS 控制 */
 .tool svg { width: 14px; height: 14px; }
 
@@ -317,6 +319,78 @@ html, body {
 @keyframes glow {
   from { text-shadow: 0 0 8px var(--cocoa); }
   to { text-shadow: 0 0 22px var(--navajo); }
+}
+
+/* ===== 简约模式：A+B 左右双栏 + 工具栏悬停（对应 UI 设计稿） =====
+   左上 = 溯迹+状态（鼠标移入时整组换成 4 个工具按钮）
+   左下 = 大时间 · 竖分隔线 · 播放/暂停三角
+   右上 = 小时进度文字 / 右下 = 徽章（满 7 个自动折成两排） */
+#play-row { display: contents; } /* 普通模式 display:contents 不影响布局 */
+
+body.compact:not(.fullscreen):not(.mini) #card {
+  display: grid;
+  grid-template-columns: auto auto;       /* 两列均按内容取宽，整体靠左 */
+  grid-template-areas:
+    "status   progress"
+    "timeplay badges";
+  justify-content: start;
+  column-gap: 24px;
+  row-gap: 5px;
+  align-items: center;
+  padding: 9px 16px 11px;
+  height: auto;
+}
+
+/* —— 左上：状态区。溯迹+状态 与 工具按钮 同位叠放，hover 切换（opacity 不挤占布局，无跳动）—— */
+body.compact:not(.fullscreen):not(.mini) #dragbar {
+  grid-area: status;
+  display: block; position: relative;
+  height: auto; min-height: 18px;
+}
+body.compact:not(.fullscreen):not(.mini) #brandline { transition: opacity .15s; }
+body.compact:not(.fullscreen):not(.mini) #tools {
+  position: absolute; left: -2px; top: -1px; margin: 0;
+  opacity: 0; pointer-events: none; transition: opacity .15s;
+}
+body.compact:not(.fullscreen):not(.mini) #card:hover #brandline { opacity: 0; }
+body.compact:not(.fullscreen):not(.mini) #card:hover #tools { opacity: 1; pointer-events: auto; }
+
+/* —— 左下：大时间 · 竖分隔线 · 播放/暂停三角，横向并排 —— */
+body.compact:not(.fullscreen):not(.mini) #play-row {
+  grid-area: timeplay;
+  display: flex; flex-direction: row; align-items: center; gap: 14px; margin: 0;
+}
+body.compact:not(.fullscreen):not(.mini) #center-slot { flex: none; min-height: 0; margin: 0; width: auto; }
+body.compact:not(.fullscreen):not(.mini) .bigtime { position: static; font-size: 30px; letter-spacing: 1px; }
+body.compact:not(.fullscreen):not(.mini) #focus-time { opacity: 1 !important; position: static; color: var(--navajo); }
+body.compact:not(.fullscreen):not(.mini) #big-toggle {
+  flex: none; width: auto; min-height: 0;
+  padding: 2px 0 2px 14px;
+  border: none; border-left: 1.5px solid var(--bistre-line); /* 时间与播放键之间的竖分隔线 */
+  border-radius: 0;
+  background: none !important; box-shadow: none !important; animation: none !important;
+  color: var(--cocoa);
+}
+body.compact:not(.fullscreen):not(.mini) #big-toggle .bt-label,
+body.compact:not(.fullscreen):not(.mini) #big-toggle .bt-sub { display: none; }
+body.compact:not(.fullscreen):not(.mini) #big-toggle .bt-main { gap: 0; }
+body.compact:not(.fullscreen):not(.mini) #big-toggle .bt-icon { width: 26px; height: 26px; }
+body.compact:not(.fullscreen):not(.mini) #big-toggle:hover { color: var(--cocoa-soft); }
+
+/* 隐藏：浓缩条 + 底部三行 + 休息计时 */
+body.compact:not(.fullscreen):not(.mini) #hour-wrap,
+body.compact:not(.fullscreen):not(.mini) #liveinfo,
+body.compact:not(.fullscreen):not(.mini) #rest-time { display: none; }
+
+/* —— 右上：小时进度文字 —— */
+body.compact:not(.fullscreen):not(.mini) #hour-label {
+  grid-area: progress; margin: 0; text-align: left; justify-self: start; white-space: nowrap;
+}
+/* —— 右下：徽章。固定 7 列，满 7 个自动折成第二排（7→一排 / 14→两排） —— */
+body.compact:not(.fullscreen):not(.mini) #badges {
+  grid-area: badges; margin: 0;
+  display: grid; grid-template-columns: repeat(7, auto); gap: 5px;
+  justify-self: start; justify-items: center;
 }
 
 /* ===== 全屏专注模式：极简巨字（默认隐藏全屏专用元素） ===== */

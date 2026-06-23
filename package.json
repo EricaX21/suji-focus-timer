@@ -5,12 +5,21 @@
   "description": "专注计时悬浮窗：置顶、可拖动、全局快捷键暂停，每满 1 小时给奖励",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dev": "electronmon ."
+  },
+  "electronmon": {
+    "patterns": [
+      "!dist/**",
+      "!data/**",
+      "!.devdata/**"
+    ]
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "electron": "^31.0.0",
+    "electronmon": "^2.0.4",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.35.1"
   },

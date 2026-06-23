@@ -8,9 +8,11 @@
   <div id="card" class="paused">
     <!-- 顶部拖动条 -->
     <div id="dragbar">
-      <span id="appname">溯迹</span>
-      <span id="status-eye"></span>
-      <span id="status-text">已暂停</span>
+      <span id="brandline">
+        <span id="appname">溯迹</span>
+        <span id="status-eye"></span>
+        <span id="status-text">已暂停</span>
+      </span>
       <span id="mini-focus"></span>
       <div id="tools">
         <button id="btn-fullscreen" class="tool" title="全屏专注"><i data-lucide="maximize"></i></button>
@@ -20,6 +22,8 @@
       </div>
     </div>
 
+    <!-- play-row：普通模式 display:contents（不影响布局）；简约模式变 flex row 让时间与按钮并排 -->
+    <div id="play-row">
     <!-- 中央大显示：专注时跑专注总时长；暂停时跑休息计时 -->
     <div id="center-slot">
       <div id="focus-time" class="bigtime">00:00:00</div>
@@ -35,6 +39,7 @@
 
     <!-- 超大暂停/开始按钮（紧贴浓缩条下方）。图标与文案由 timer.js 按状态切换 -->
     <button id="big-toggle"><i data-lucide="play" class="bt-icon"></i><span class="bt-label">点我开始专注</span></button>
+    </div><!-- /play-row -->
 
     <!-- 小时进度文字：放在按钮与徽章之间 -->
     <div id="hour-label">第 <b>1</b> 小时 · <b>0</b> / 60 分钟</div>

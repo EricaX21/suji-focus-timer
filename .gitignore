@@ -18,5 +18,8 @@ Thumbs.db
 desktop.ini
 *.log
 
+# 开发自测时的临时截图（调试用，不纳入仓库）
+.shot-*.png
+
 # 个人需求草稿（不公开）
 计划更新内容.md

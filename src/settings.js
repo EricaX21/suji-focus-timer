@@ -155,6 +155,14 @@ async function init() {
   document.getElementById('fs-mini').addEventListener('change', (e) => { if (e.target.checked) window.api.setFsMode({ fullscreenMode: 'mini' }); });
   document.getElementById('fs-hide').addEventListener('change', (e) => { if (e.target.checked) window.api.setFsMode({ fullscreenMode: 'hide' }); });
 
+  // 显示模式：普通 / 简约（记住选择）
+  try {
+    const ui = await window.api.getUiMode();
+    document.getElementById(ui && ui.compact ? 'ui-compact' : 'ui-normal').checked = true;
+  } catch (e) { /* 忽略 */ }
+  document.getElementById('ui-normal').addEventListener('change', (e) => { if (e.target.checked) window.api.setUiMode({ compact: false }); });
+  document.getElementById('ui-compact').addEventListener('change', (e) => { if (e.target.checked) window.api.setUiMode({ compact: true }); });
+
   // 清除今日记录（二次确认；旧记录归档不丢，复盘可查）
   const clearBtn = document.getElementById('clear-today');
   let clearArmed = false;

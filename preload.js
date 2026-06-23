@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   getActiveWindow: () => ipcRenderer.invoke('active-window'),
   openStats: () => ipcRenderer.send('open-stats'),
   openSettings: () => ipcRenderer.send('open-settings'),
+  // 子窗（设置/看板）关闭 → 悬浮窗据此自动恢复专注
+  onChildWindowClosed: (cb) => ipcRenderer.on('child-window-closed', cb),
   // 今日总结独立窗口：悬浮窗算好 payload 交给主进程开新窗展示
   openSummary: (payload) => ipcRenderer.send('open-summary', payload),
   loadSummary: () => ipcRenderer.invoke('load-summary'),
@@ -18,7 +20,7 @@ contextBridge.exposeInMainWorld('api', {
   clearToday: () => ipcRenderer.invoke('clear-today'),
   onDayCleared: (cb) => ipcRenderer.on('day-cleared', cb),
   quitApp: () => ipcRenderer.send('quit-app'),
-  resizeWindow: (h) => ipcRenderer.send('resize-window', h),
+  resizeWindow: (h, w) => ipcRenderer.send('resize-window', h, w),
   notifyHour: (n, goalHours) => ipcRenderer.send('notify-hour', n, goalHours),
   getAutostart: () => ipcRenderer.invoke('get-autostart'),
   setAutostart: (val) => ipcRenderer.send('set-autostart', val),
@@ -29,6 +31,10 @@ contextBridge.exposeInMainWorld('api', {
   getFsMode: () => ipcRenderer.invoke('get-fs-mode'),
   setFsMode: (v) => ipcRenderer.invoke('set-fs-mode', v),
   onExternalFullscreen: (cb) => ipcRenderer.on('external-fullscreen-changed', (e, info) => cb(info)),
+  // 显示模式（普通 / 简约），持久化记忆
+  getUiMode: () => ipcRenderer.invoke('get-ui-mode'),
+  setUiMode: (v) => ipcRenderer.invoke('set-ui-mode', v),
+  onUiModeChanged: (cb) => ipcRenderer.on('ui-mode-changed', (e, compact) => cb(compact)),
   // 用户手动拉伸窗口的通知（之后不再自动按内容改高）
   onUserResized: (cb) => ipcRenderer.on('user-resized', cb),
   // 全局快捷键触发的暂停/继续

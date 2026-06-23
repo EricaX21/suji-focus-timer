@@ -5,10 +5,20 @@ const fs = require('fs');
 // Windows 通知需要一个 AppUserModelId 才能正常弹 toast
 app.setAppUserModelId('com.studytimer.app');
 
+// 开发态（未打包）数据隔离：把 Electron 自身的 userData 指到独立目录，
+// 不与正式 exe 的数据混用。所有开发态行为都包在 !app.isPackaged 里，正式运行不受影响。
+if (!app.isPackaged) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'study-timer-dev'));
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'; // 开发态静音 CSP 安全警告（打包后本就不显示）
+}
+
 // 数据根目录：默认 %APPDATA%\study-timer（与应用显示名解耦，改名不丢数据）。
 // 开发/测试时可设环境变量 STUDYTIMER_DATA_DIR 指向另一个目录，与正在运行的正式版数据隔离、互不干扰。
 function appRoot() {
-  return process.env.STUDYTIMER_DATA_DIR || path.join(app.getPath('appData'), 'study-timer');
+  if (process.env.STUDYTIMER_DATA_DIR) return process.env.STUDYTIMER_DATA_DIR; // 显式指定优先（CI/特殊隔离）
+  // 未打包（npm start / npm run dev）走独立目录：随便造数据、清记录都不碰正式 exe 的真实专注记录
+  const dir = app.isPackaged ? 'study-timer' : 'study-timer-dev';
+  return path.join(app.getPath('appData'), dir);
 }
 
 // 数据目录：放在 <数据根>\data
@@ -256,6 +266,8 @@ function createTimerWindow() {
   timerWin.setAlwaysOnTop(true, 'screen-saver');
   timerWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   timerWin.loadFile(path.join(__dirname, 'src', 'timer.html'));
+  // 开发态自动开 DevTools（独立窗口），方便看 console / IPC 报错
+  if (!app.isPackaged) timerWin.webContents.openDevTools({ mode: 'detach' });
 
   // 用户手动拖拽边缘改尺寸时通知渲染层（'will-resize' 只在交互式 resize 时触发，
   // 程序 setBounds（fitWindow/全屏）不会触发，因此能区分"用户拉伸" vs "程序改尺寸"）
@@ -292,6 +304,24 @@ function fullscreenMode() {
   const m = loadSettings().fullscreenMode;
   return m === 'hide' ? 'hide' : 'mini'; // 默认 mini
 }
+// 显示模式：简约（compact）/ 普通。默认普通。
+function compactMode() { return loadSettings().compactMode === true; }
+// 切换简约/普通：缩小或还原窗口尺寸 + 通知渲染层切 body.compact
+function applyCompact(on) {
+  if (!timerWin || timerWin.isDestroyed()) return;
+  timerWin.webContents.send('ui-mode-changed', on);
+  if (isFull || externalFull) return; // 全屏/外部全屏态下只切 class，尺寸等其退出后由各自逻辑接管
+  const b = timerWin.getBounds();
+  if (on) {
+    timerWin.setMinimumSize(320, 110);
+    timerWin.setBounds({ x: b.x, y: b.y, width: Math.max(420, b.width), height: 110 }); // 初始给个大致值，渲染层 fitCompact 再按内容精调宽高
+    timerWin.setResizable(false); // 简约：固定小窗，禁手动拉伸（杜绝被缩到切掉内容）
+  } else {
+    timerWin.setResizable(true);
+    timerWin.setMinimumSize(360, 240);
+    timerWin.setBounds({ x: b.x, y: b.y, width: Math.max(360, b.width), height: 268 });
+  }
+}
 async function checkExternalFullscreen() {
   if (!timerWin || timerWin.isDestroyed() || isFull) return; // 自身全屏专注时不处理
   let isExt = false;
@@ -301,16 +331,23 @@ async function checkExternalFullscreen() {
     if (w && w.bounds) {
       const ownerPath = ((w.owner && (w.owner.path || w.owner.name)) || '').toLowerCase();
       const isOurs = ownerPath.includes('study-timer') || ownerPath.includes('溯迹') || ownerPath.includes('electron');
-      if (!isOurs && (w.title || '').length >= 0) {
-        const disp = screen.getDisplayMatching(w.bounds);
-        const b = disp.bounds;
-        const near = (a, c) => Math.abs(a - c) <= 2;
-        if (near(w.bounds.x, b.x) && near(w.bounds.y, b.y) && near(w.bounds.width, b.width) && near(w.bounds.height, b.height)) {
-          isExt = true; // 前台窗口铺满整块屏幕（含任务栏区）→ 判为外部全屏
+      if (!isOurs) {
+        // get-windows 返回的是物理像素 bounds；Electron 屏幕 bounds 是 DIP 逻辑像素。
+        // 缩放≠100% 时两者差几百像素，必须把屏幕 DIP bounds 换算成物理像素再比，否则永不命中。
+        const near = (a, c) => Math.abs(a - c) <= 4; // 容差 2→4，吸收 DIP↔物理换算舍入
+        for (const disp of screen.getAllDisplays()) {
+          const phys = screen.dipToScreenRect(null, disp.bounds); // 屏幕 DIP bounds → 物理像素
+          if (near(w.bounds.x, phys.x) && near(w.bounds.y, phys.y) &&
+              near(w.bounds.width, phys.width) && near(w.bounds.height, phys.height)) {
+            isExt = true; // 前台窗口铺满整块屏幕（含任务栏区）→ 判为外部全屏
+            break;
+          }
         }
+        const _d0 = screen.getDisplayMatching(w.bounds); // [FS-DEBUG] 临时诊断，验证后删
+        console.log('[FS-DEBUG]', JSON.stringify({ wb: w.bounds, owner: ownerPath, dispBounds: _d0.bounds, sf: _d0.scaleFactor, dipToScreen: screen.dipToScreenRect(null, _d0.bounds), isExt }));
       }
     }
-  } catch (e) { return; }
+  } catch (e) { console.log('[FS-DEBUG] error', e && e.message); return; }
 
   if (isExt === externalFull) return; // 状态没变，不重复处理
   externalFull = isExt;
@@ -338,6 +375,11 @@ async function checkExternalFullscreen() {
   }
 }
 
+// 子窗（设置/看板）关闭后通知悬浮窗：之前因打开子窗而暂停的话，自动恢复专注
+function notifyChildClosed() {
+  if (timerWin && !timerWin.isDestroyed()) timerWin.webContents.send('child-window-closed');
+}
+
 function createStatsWindow() {
   if (statsWin && !statsWin.isDestroyed()) {
     statsWin.focus();
@@ -355,7 +397,7 @@ function createStatsWindow() {
     }
   });
   statsWin.loadFile(path.join(__dirname, 'src', 'stats.html'));
-  statsWin.on('closed', () => { statsWin = null; });
+  statsWin.on('closed', () => { statsWin = null; notifyChildClosed(); });
 }
 
 // 今日总结：独立窗口（不再挤在悬浮窗里）。数据由悬浮窗经 open-summary 传来。
@@ -397,7 +439,7 @@ function createSettingsWindow() {
     }
   });
   settingsWin.loadFile(path.join(__dirname, 'src', 'settings.html'));
-  settingsWin.on('closed', () => { settingsWin = null; });
+  settingsWin.on('closed', () => { settingsWin = null; notifyChildClosed(); });
 }
 
 // 开机目标/计划/奖励设定窗（独立窗口，居中）。确认后才显示悬浮窗。
@@ -444,8 +486,10 @@ function setupHotkey() {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null); // 去掉默认英文菜单栏（File/Edit/View…），统计窗口不再显示
   createTimerWindow();
+  // 启动时套用上次记住的显示模式（简约则缩小窗口）；等渲染层加载完再切，避免初始闪烁
+  if (compactMode()) timerWin.webContents.once('did-finish-load', () => applyCompact(true));
   setupHotkey();
-  setInterval(checkExternalFullscreen, 3000); // 外部全屏检测（迷你数字/隐藏）
+  setInterval(checkExternalFullscreen, 700); // 外部全屏检测（迷你数字/隐藏）；700ms 让进/出全屏更跟手
 
   // 启动判定：进行中的多天计划 → 继续接续今天（即便昨天有缺额也不再硬失败，
   //   缺额由悬浮窗温柔提示并可补救）；仅当计划周期整个走完仍未完成 / 无目标 / oneShot 过期 → 弹设定窗
@@ -562,12 +606,14 @@ ipcMain.handle('clear-today', () => {
 });
 ipcMain.on('toggle-fullscreen', () => toggleFullscreen());
 
-// 渲染层按内容自适应窗口高度（保持位置/宽度不变）
-ipcMain.on('resize-window', (e, height) => {
-  if (isFull) return; // 全屏态不按内容改高
+// 渲染层按内容自适应窗口尺寸（保持位置不变）。
+// height 必传；width 选传（简约模式左右双栏宽度也随内容变，普通模式不传则宽度不动）。
+ipcMain.on('resize-window', (e, height, width) => {
+  if (isFull) return; // 全屏态不按内容改尺寸
   if (timerWin && !timerWin.isDestroyed()) {
     const b = timerWin.getBounds();
-    timerWin.setBounds({ x: b.x, y: b.y, width: b.width, height: Math.max(120, Math.round(height)) });
+    const w = (width && width > 0) ? Math.max(320, Math.round(width)) : b.width;
+    timerWin.setBounds({ x: b.x, y: b.y, width: w, height: Math.max(110, Math.round(height)) });
   }
 });
 
@@ -701,6 +747,17 @@ ipcMain.on('flash-attention', () => {
   if (!timerWin.isVisible()) timerWin.show();
   try { timerWin.flashFrame(true); } catch (e) { /* 忽略 */ }
   try { timerWin.moveTop(); } catch (e) { /* 忽略 */ }
+});
+
+// 显示模式（普通 / 简约）：持久化到 settings.compactMode，记住上次选择
+ipcMain.handle('get-ui-mode', () => ({ compact: compactMode() }));
+ipcMain.handle('set-ui-mode', (e, v) => {
+  v = v || {};
+  const s = loadSettings();
+  s.compactMode = !!v.compact;
+  saveSettings(s);
+  applyCompact(s.compactMode);
+  return { compact: s.compactMode };
 });
 
 // 全屏看视频时的表现：mini（顶部迷你数字）/ hide（完全隐藏）

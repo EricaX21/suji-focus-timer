@@ -19,6 +19,7 @@ let goalDone = false;
 let restStartEpoch = 0;  // 休息计时起点（暂停时启动）
 let userResized = false; // 用户是否手动拉伸过窗口（拉伸后不再自动按内容改高）
 let overLimit = false;   // 是否已超过 14 小时上限（进入劝退态）
+let pausedForChild = false; // 是否因打开设置/看板子窗而暂停（关窗后据此自动恢复专注）
 let overStartEpoch = 0;  // 超过 14h 的起点（用于"数字继续走但不计入"）
 let lastFlagTotal = 0;   // 上次插暂停旗时的累计专注（防短期密集插旗）
 let planState = null;    // 当前计划（含派生进度）
@@ -457,6 +458,7 @@ function setTimeVisibility() {
   // 外部全屏迷你态：只显示中央专注时长数字（位置由 CSS body.mini 控制）
   if (document.body.classList.contains('mini')) { focus.style.opacity = '1'; mini.style.opacity = '0'; return; }
   if (document.body.classList.contains('fullscreen')) { focus.style.opacity = '1'; mini.style.opacity = '0'; return; }
+  if (document.body.classList.contains('compact')) { focus.style.opacity = '1'; mini.style.opacity = '0'; return; } // 简约：始终显示专注总时长
   if (running) { focus.style.opacity = '1'; mini.style.opacity = '0'; }          // 专注：中央大字
   else if (restStartEpoch) { focus.style.opacity = '0'; mini.style.opacity = '1'; } // 休息：顶部小字 + 中央休息计时
   else { focus.style.opacity = '1'; mini.style.opacity = '0'; }                  // 引导/未开始：中央显示总时长（没记录时即 00:00:00）
@@ -617,10 +619,16 @@ function bindEvents() {
   // 设置：打开独立窗口；打开即进入暂停（也是一种休息，且确保数据已保存供设置窗读取）
   document.getElementById('btn-goal').addEventListener('click', (e) => {
     e.stopPropagation();
+    pausedForChild = running;     // 记住打开前是否在专注，关窗后据此恢复
     if (running) pause();
     window.api.openSettings();
   });
-  document.getElementById('btn-stats').addEventListener('click', (e) => { e.stopPropagation(); window.api.openStats(); });
+  document.getElementById('btn-stats').addEventListener('click', (e) => {
+    e.stopPropagation();
+    pausedForChild = running;     // 看板也是"暂时离开专注"，关窗后恢复
+    if (running) pause();
+    window.api.openStats();
+  });
 
   // ✕ 退出：智能退出弹窗（按今日目标做完没分流）
   document.getElementById('btn-quit').addEventListener('click', (e) => { e.stopPropagation(); openExit(); });
@@ -701,7 +709,7 @@ function bindEvents() {
   window.api.onDayCleared(async () => {
     const today = await window.api.todayStr();
     data = await window.api.loadDay(today);
-    running = false; curIdx = -1;
+    running = false; curIdx = -1; pausedForChild = false;
     lastMilestone = 0; goalDone = false;
     overLimit = false; overStartEpoch = 0; lastFlagTotal = 0;
     hideRest();
@@ -743,6 +751,31 @@ function bindEvents() {
     setTimeVisibility();
   });
 
+  // 子窗（设置/看板）关闭 → 若之前因打开它而暂停、现仍暂停，自动续上专注
+  window.api.onChildWindowClosed(() => {
+    if (pausedForChild && !running && !overLimit) start();
+    pausedForChild = false;
+  });
+
+  // 显示模式（普通/简约）切换：toggle body.compact
+  window.api.onUiModeChanged((compact) => {
+    document.body.classList.toggle('compact', !!compact);
+    luRender();
+    setTimeVisibility();
+    render();
+    if (compact) requestAnimationFrame(() => requestAnimationFrame(fitCompact));
+  });
+  // 启动时套用上次记住的显示模式（简约则加 body.compact）
+  window.api.getUiMode().then((m) => {
+    if (m && m.compact) {
+      document.body.classList.add('compact');
+      luRender();
+      setTimeVisibility();
+      render();
+      requestAnimationFrame(() => requestAnimationFrame(fitCompact));
+    }
+  }).catch(() => {});
+
   // 全局快捷键
   window.api.onGlobalToggle(() => primaryAction());
 }
@@ -752,6 +785,26 @@ function bindEvents() {
 // 因为 #card height:100vh 会让"按内容测高"失真（card 高恒等于窗口高）。
 // 徽章数量变化由 #center-slot 的 flex:1 在窗口内自动吸收/让出空间。保留空实现以兼容调用点。
 function fitWindow() {}
+
+// 简约模式：按内容实际宽高收缩窗口（简约态 #card 为 grid + height:auto，两列均按内容取宽）。
+// 左右双栏后宽度也随徽章排数/进度文字变，故宽高一起量、一起改。
+function fitCompact() {
+  if (!document.body.classList.contains('compact')) return;
+  const card = document.getElementById('card');
+  if (!card) return;
+  const playRow = document.getElementById('play-row'); // 左栏：时间+分隔线+播放键
+  const label = document.getElementById('hour-label'); // 右上：进度文字
+  const badges = document.getElementById('badges');    // 右下：徽章网格
+  const leftW = playRow ? playRow.getBoundingClientRect().width : 0;
+  const rightW = Math.max(
+    label ? label.scrollWidth : 0,
+    badges ? badges.getBoundingClientRect().width : 0
+  );
+  const PAD = 16, COLGAP = 24; // 与 CSS 的 padding 左右 / column-gap 对齐
+  const w = Math.ceil(PAD * 2 + leftW + COLGAP + rightW);
+  const h = Math.ceil(card.scrollHeight);
+  if (h > 0) window.api.resizeWindow(h, w);
+}
 
 // ---------- 内容分类采样 ----------
 const CAT_LABELS = (window.Categories && window.Categories.LABELS) ||
